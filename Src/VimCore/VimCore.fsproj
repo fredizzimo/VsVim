@@ -45,6 +45,7 @@
     <FSharpTargetsPath>$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\FSharp\Microsoft.FSharp.Targets</FSharpTargetsPath>
   </PropertyGroup>
   <Import Condition=" '$(VisualStudioVersion)' == '12.0' " Project="$(FSharpTargetsPath)" />
+  <Import Condition=" '$(VisualStudioVersion)' == '14.0' " Project="$(FSharpTargetsPath)" />
   <Import Project="$(SolutionDir)\.nuget\nuget.targets" />
   <ItemGroup>
     <Compile Include="Resources.fs" />
