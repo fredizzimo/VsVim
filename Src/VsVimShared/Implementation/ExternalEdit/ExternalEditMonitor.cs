@@ -11,7 +11,7 @@ using Vim;
 using Vim.Extensions;
 using EditorUtils;
 
-namespace VsVim.Implementation.ExternalEdit
+namespace Vim.VisualStudio.Implementation.ExternalEdit
 {
     /// <summary>
     /// Monitors external edits for a particular IVimBuffer instance

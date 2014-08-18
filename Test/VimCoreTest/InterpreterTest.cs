@@ -1778,7 +1778,7 @@ namespace Vim.UnitTest
                 Create("");
                 var didRun = false;
                 VimHost.RunVisualStudioCommandFunc =
-                    (command, argument) =>
+                    (textView, command, argument) =>
                     {
                         Assert.Equal("Build.BuildSelection", command);
                         Assert.Equal("", argument);
@@ -1797,7 +1797,7 @@ namespace Vim.UnitTest
                 Create("");
                 var didRun = false;
                 VimHost.RunVisualStudioCommandFunc =
-                    (command, argument) =>
+                    (textView, command, argument) =>
                     {
                         Assert.Equal("Build.BuildSelection", command);
                         Assert.Equal("Arg", argument);
@@ -1807,7 +1807,6 @@ namespace Vim.UnitTest
                 Assert.True(didRun);
             }
 
-            [Fact(Skip="Need to fix the parsing logic")]
             public void Issue1328()
             {
                 Create("");

@@ -326,6 +326,7 @@ type CallInfo = {
     Name : string
     Arguments : string
     LineRange : LineRangeSpecifier
+    IsScriptLocal : bool
 }
 
 type FunctionDefinition = {
@@ -448,7 +449,7 @@ and [<RequireQualifiedAccess>] LineCommand =
 
     /// Display the contents of registers.  Unless a specific register name is 
     /// given all registers will be displayed
-    | DisplayRegisters of RegisterName option
+    | DisplayRegisters of RegisterName list
 
     /// Display the specified marks.  If no Mark values are provided then display 
     /// all marks
@@ -679,7 +680,7 @@ type IVimInterpreter =
     abstract GetLineRange : lineRange : LineRangeSpecifier -> SnapshotLineRange option
 
     /// Run the LineCommand
-    abstract RunLineCommand : lineCommand : LineCommand -> RunResult
+    abstract RunLineCommand : lineCommand : LineCommand -> unit
 
     /// Run the Expression
     abstract RunExpression : expression : Expression -> VariableValue

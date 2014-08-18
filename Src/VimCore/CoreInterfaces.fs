@@ -46,13 +46,26 @@ type TextViewEventArgs(_textView : ITextView) =
 
     member x.TextView = _textView
 
+type VimRcKind =
+    | VimRc     = 0
+    | VsVimRc   = 1
+
+type VimRcPath = { 
+
+    /// Which type of file was loaded 
+    VimRcKind : VimRcKind 
+
+    /// Full path to the file which the contents were loaded from
+    FilePath : string
+}
+
 [<RequireQualifiedAccess>]
 type VimRcState =
     /// The VimRc file has not been processed at this point
     | None
 
     /// The load succeeded and the specified file was used 
-    | LoadSucceeded of string
+    | LoadSucceeded of VimRcPath
 
     /// The load failed 
     | LoadFailed
@@ -110,19 +123,6 @@ type IStatusUtilFactory =
 
     /// Get the IStatusUtil instance for the given ITextBuffer
     abstract GetStatusUtil : textBuffer : ITextBuffer -> IStatusUtil
-
-type VimRcKind =
-    | VimRc     = 0
-    | VsVimRc   = 1
-
-type VimRcPath = { 
-
-    /// Which type of file was loaded 
-    VimRcKind : VimRcKind 
-
-    /// Full path to the file which the contents were loaded from
-    FilePath : string
-}
 
 /// Abstracts away VsVim's interaction with the file system to facilitate testing
 type IFileSystem =
@@ -205,6 +205,13 @@ type ITextViewUndoTransaction =
 
     inherit IUndoTransaction
 
+/// Flags controlling the linked undo transaction behavior
+[<System.Flags>]
+type LinkedUndoTransactionFlags = 
+    | None = 0x0
+
+    | CanBeEmpty = 0x1
+
 /// Wraps a set of IUndoTransaction items such that they undo and redo as a single
 /// entity.
 type ILinkedUndoTransaction =
@@ -229,11 +236,15 @@ type IUndoRedoOperations =
     /// Creates an Undo Transaction
     abstract CreateUndoTransaction : name : string -> IUndoTransaction
 
-    /// Creates an Undo Transaction specific to the given ITextView
+    /// Creates an Undo Transaction specific to the given ITextView.  Use when operations
+    /// like caret position need to be a part of the undo / redo stack
     abstract CreateTextViewUndoTransaction : name : string -> textView : ITextView -> ITextViewUndoTransaction
 
     /// Creates a linked undo transaction
     abstract CreateLinkedUndoTransaction : name : string -> ILinkedUndoTransaction
+
+    /// Creates a linked undo transaction with flags
+    abstract CreateLinkedUndoTransactionWithFlags : name : string -> flags : LinkedUndoTransactionFlags -> ILinkedUndoTransaction
 
     /// Wrap the passed in "action" inside an undo transaction.  This is needed
     /// when making edits such as paste so that the cursor will move properly 
@@ -910,6 +921,11 @@ type UnmatchedTokenKind =
     | Paren
     | CurlyBracket
 
+[<RequireQualifiedAccess>]
+type TagBlockKind =
+    | Inner
+    | All
+
 /// A discriminated union of the Motion types supported.  These are the primary
 /// repeat mechanisms for Motion arguments so it's very important that these 
 /// are ITextView / IVimBuffer agnostic.  It will be very common for a Motion 
@@ -934,6 +950,9 @@ type Motion =
     /// can't be associated with a count.  Doing a command like 30 binds as count 30 vs. count 3 
     /// for command '0'
     | BeginingOfLine
+
+    /// Implement the 'ge' / 'gE' motion.  Goes backward to the end of the previous word 
+    | BackwardEndOfWord of WordKind
 
     /// The left motion for h
     | CharLeft 
@@ -1097,6 +1116,9 @@ type Motion =
     /// Move the the specific column of the current line. Typically in response to the | key. 
     | ScreenColumn
 
+    /// Matching xml / html tags
+    | TagBlock of TagBlockKind
+
     /// The [(, ]), ]}, [{ motions
     | UnmatchedToken of Path * UnmatchedTokenKind
 
@@ -1117,6 +1139,9 @@ and IMotionUtil =
 
     /// Get the specific text object motion from the given SnapshotPoint
     abstract GetTextObject : motion : Motion -> point : SnapshotPoint -> MotionResult option
+
+    /// Get the expanded tag point for the given tag block kind
+    abstract GetExpandedTagBlock : point : SnapshotPoint -> kind : TagBlockKind -> SnapshotSpan option
 
 type ModeKind = 
     | Normal = 1
@@ -3349,6 +3374,9 @@ type IIncrementalSearch =
     /// True when a search is occurring
     abstract InSearch : bool
 
+    /// True when the search is in a paste wait state
+    abstract InPasteWait : bool
+
     /// When in the middle of a search this will return the SearchData for 
     /// the search
     abstract CurrentSearchData : SearchData 
@@ -3607,6 +3635,9 @@ type internal IHistoryClient<'TData, 'TResult> =
     /// History list used by this client
     abstract HistoryList : HistoryList
 
+    /// Get the register map 
+    abstract RegisterMap : IRegisterMap
+
     /// What remapping mode if any should be used for key input
     abstract RemapMode : KeyRemapMode
 
@@ -3614,15 +3645,15 @@ type internal IHistoryClient<'TData, 'TResult> =
     abstract Beep : unit -> unit
 
     /// Process the new command with the previous TData value
-    abstract ProcessCommand : 'TData -> string -> 'TData
+    abstract ProcessCommand : data : 'TData -> command : string -> 'TData
 
     /// Called when the command is completed.  The last valid TData and command
     /// string will be provided
-    abstract Completed : 'TData -> string -> 'TResult
+    abstract Completed : data : 'TData -> command : string -> 'TResult
 
     /// Called when the command is cancelled.  The last valid TData value will
     /// be provided
-    abstract Cancelled : 'TData -> unit
+    abstract Cancelled : data : 'TData -> unit
 
 /// An active use of an IHistoryClient instance 
 type internal IHistorySession<'TData, 'TResult> =
@@ -3632,6 +3663,9 @@ type internal IHistorySession<'TData, 'TResult> =
 
     /// The current command that is being used 
     abstract Command : string 
+
+    /// Is the session currently waiting for a register paste operation to complete
+    abstract InPasteWait : bool
 
     /// The current client data 
     abstract ClientData : 'TData
@@ -3703,21 +3737,6 @@ type IVimData =
     [<CLIEvent>]
     abstract DisplayPatternChanged : IDelegateEvent<System.EventHandler>
 
-type FontPropertiesEventArgs () =
-
-    inherit System.EventArgs()
-
-type IFontProperties =
-
-    /// The font family
-    abstract FontFamily : System.Windows.Media.FontFamily
-
-    /// The font size in points
-    abstract FontSize : double
-
-    [<CLIEvent>]
-    abstract FontPropertiesChanged : IDelegateEvent<System.EventHandler<FontPropertiesEventArgs>>
-
 [<RequireQualifiedAccess>]
 [<NoComparison>]
 type QuickFix =
@@ -3752,9 +3771,6 @@ type IVimHost =
 
     /// What settings defaults should be used when there is no vimrc file present
     abstract DefaultSettings : DefaultSettings
-
-    /// Get the font properties associated with the text editor
-    abstract FontProperties : IFontProperties
 
     /// Is auto-command enabled for this host
     abstract IsAutoCommandEnabled : bool
@@ -3797,6 +3813,10 @@ type IVimHost =
     /// Get the indent for the new line.  This has precedence over the 'autoindent'
     /// setting
     abstract GetNewLineIndent : textView : ITextView -> contextLine : ITextSnapshotLine -> newLine : ITextSnapshotLine -> int option
+
+    /// Get the WordWrap style which should be used for the specified ITextView if word 
+    /// wrap is enabled
+    abstract GetWordWrapStyle : textView : ITextView -> WordWrapStyles
 
     /// Go to the definition of the value under the cursor
     abstract GoToDefinition : unit -> bool
@@ -3854,8 +3874,8 @@ type IVimHost =
     /// output
     abstract RunCommand : file : string -> arguments : string -> vimHost : IVimData -> string
 
-    /// Run the Visual studio command
-    abstract RunVisualStudioCommand : commandName : string -> argument : string -> unit
+    /// Run the Visual studio command in the context of the given ITextView
+    abstract RunVisualStudioCommand : textView : ITextView -> commandName : string -> argument : string -> unit
 
     /// Save the provided ITextBuffer instance
     abstract Save : textBuffer : ITextBuffer -> bool 
@@ -4468,8 +4488,11 @@ and ICommandMode =
     /// Buffered input for the current command
     abstract Command : string with get, set
 
+    /// Is command mode currently waiting for a register paste operation to complete
+    abstract InPasteWait : bool
+
     /// Run the specified command
-    abstract RunCommand : string -> RunResult
+    abstract RunCommand : string -> unit
 
     /// Raised when the command string is changed
     [<CLIEvent>]

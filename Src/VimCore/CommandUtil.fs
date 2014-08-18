@@ -835,7 +835,7 @@ type internal CommandUtil
     /// Used for the several commands which make an edit here and need the edit to be linked
     /// with the next insert mode change.  
     member x.EditWithLinkedChange name action =
-        let transaction = _undoRedoOperations.CreateLinkedUndoTransaction name
+        let transaction = _undoRedoOperations.CreateLinkedUndoTransaction name 
 
         try
             x.EditWithUndoTransaciton name action
@@ -1483,22 +1483,32 @@ type internal CommandUtil
             let argument = ModeArgument.InitialVisualSelection (visualSelection, None)
             x.SwitchMode desiredVisualKind.VisualModeKind argument
 
+        let isInitialSelection = 
+            match visualSpan with
+            | VisualSpan.Character characterSpan -> characterSpan.Length <= 1
+            | VisualSpan.Block blockSpan -> blockSpan.Spaces <= 1
+            | VisualSpan.Line lineRange -> lineRange.Count = 1
+
+        let moveTag kind = 
+            if isInitialSelection then
+                match _motionUtil.GetTextObject motion x.CaretPoint with
+                | None -> onError()
+                | Some motionResult -> setSelection motionResult.Span
+            else
+                match _motionUtil.GetExpandedTagBlock visualSpan.Start kind with
+                | None -> onError()
+                | Some span -> setSelection span
+
         // Handle the normal set of text objects (essentially non-block movements)
         let moveNormal () =
+
+            // TODO: Backwards motions
+            // TODO: The non-initial selection needs to ensure we're in the correct mode
 
             // The behavior of a text object depends highly on whether or not this is 
             // visual mode in it's initial state.  The docs define this as the start 
             // and end being the same but that's not true for line mode where stard and 
             // end are rarely the same.
-            let isInitialSelection = 
-                match visualSpan with
-                | VisualSpan.Character characterSpan -> characterSpan.Length <= 1
-                | VisualSpan.Block blockSpan -> blockSpan.Spaces <= 1
-                | VisualSpan.Line lineRange -> lineRange.Count = 1
-
-            // TODO: Backwards motions
-            // TODO: The non-initial selection needs to ensure we're in the correct mode
-
             if isInitialSelection then
                 // For an initial selection we just do a standard motion from the caret point
                 // and update the selection.
@@ -1549,6 +1559,7 @@ type internal CommandUtil
         match motion with
         | Motion.AllBlock blockKind -> moveBlock blockKind true
         | Motion.InnerBlock blockKind -> moveBlock blockKind false
+        | Motion.TagBlock kind -> moveTag kind
         | _ -> moveNormal () 
 
     /// Open a fold in visual mode.  In Visual Mode a single fold level is opened for every
@@ -1950,14 +1961,13 @@ type internal CommandUtil
             // Run the commands in sequence.  Only continue onto the second if the first 
             // command succeeds.  We do want any actions performed in the linked commands
             // to remain linked so do this inside of an edit transaction
-            let commandResult = x.EditWithUndoTransaciton "LinkedCommand" (fun () ->
-                let rec func count commandResult = 
-                    if count = 0 then
-                        commandResult
-                    else
-                        chainCommand commandResult (fun () -> func (count - 1) (_insertUtil.RunInsertCommand command))
+            let rec func count commandResult = 
+                if count = 0 then
+                    commandResult
+                else
+                    chainCommand commandResult (fun () -> func (count - 1) (_insertUtil.RunInsertCommand command))
 
-                func (count - 1) (_insertUtil.RunInsertCommand command))
+            let commandResult = func (count - 1) (_insertUtil.RunInsertCommand command)
 
             if doMoveLeft then
                 chainCommand commandResult (fun () -> _insertUtil.RunInsertCommand (InsertCommand.MoveCaret Direction.Left))
@@ -2000,9 +2010,8 @@ type internal CommandUtil
                 // Run the commands in sequence.  Only continue onto the second if the first 
                 // command succeeds.  We do want any actions performed in the linked commands
                 // to remain linked so do this inside of an edit transaction
-                x.EditWithUndoTransaciton "LinkedCommand" (fun () ->
-                    let commandResult = repeat command1 repeatData
-                    chainCommand commandResult (fun () -> repeat command2 None))
+                let commandResult = repeat command1 repeatData
+                chainCommand commandResult (fun () -> repeat command2 None)
 
         if _inRepeatLastChange then
             _statusUtil.OnError Resources.NormalMode_RecursiveRepeatDetected
@@ -2016,7 +2025,11 @@ type internal CommandUtil
                     _commonOperations.Beep()
                     CommandResult.Completed ModeSwitch.NoSwitch
                 | Some command ->
-                    repeat command (Some repeatData)
+                    use transaction = _undoRedoOperations.CreateLinkedUndoTransactionWithFlags "Repeat Command" LinkedUndoTransactionFlags.CanBeEmpty
+                    let result = repeat command (Some repeatData)
+                    transaction.Complete()
+                    result
+
             finally
                 _inRepeatLastChange <- false
 
@@ -2172,7 +2185,7 @@ type internal CommandUtil
             //
             // Using .Net dictionary because we have to map by ITextBuffer which doesn't have
             // the comparison constraint
-            let map = System.Collections.Generic.Dictionary<ITextBuffer, ITextViewUndoTransaction>();
+            let map = System.Collections.Generic.Dictionary<ITextBuffer, ILinkedUndoTransaction>();
 
             use bulkOperation = _bulkOperations.BeginBulkOperation()
             try 
@@ -2203,9 +2216,8 @@ type internal CommandUtil
                             | Some buffer -> 
                                 // Make sure we have an IUndoTransaction open in the ITextBuffer
                                 if not (map.ContainsKey(buffer.TextBuffer)) then
-                                    let transaction = _undoRedoOperations.CreateTextViewUndoTransaction "Macro Run" buffer.TextView
+                                    let transaction = _undoRedoOperations.CreateLinkedUndoTransactionWithFlags "Macro Run" LinkedUndoTransactionFlags.CanBeEmpty
                                     map.Add(buffer.TextBuffer, transaction)
-                                    transaction.AddBeforeTextBufferChangePrimitive()
 
                                 // Actually run the KeyInput.  If processing the KeyInput value results
                                 // in an error then we should stop processing the macro
@@ -2225,7 +2237,6 @@ type internal CommandUtil
 
                 // Close out all of the transactions
                 for transaction in map.Values do
-                    transaction.AddAfterTextBufferChangePrimitive()
                     transaction.Complete()
 
             finally
@@ -2432,6 +2443,15 @@ type internal CommandUtil
 
         let count = if count <= 0 then 1 else count
 
+        // In the case we are not using 'startofline' then this is a maintain caret column
+        // operation.  Save the current value now so that it can be processed later 
+        let maintainSpacesToCaret = 
+            let spacesToCaret = SnapshotPointUtil.GetSpacesToPoint x.CaretPoint _localSettings.TabStop
+            match _commonOperations.MaintainCaretColumn with
+            | MaintainCaretColumn.None -> spacesToCaret
+            | MaintainCaretColumn.Spaces spaces -> max spaces spacesToCaret
+            | MaintainCaretColumn.EndOfLine -> spacesToCaret
+
         try
             // Update the caret to the specified offset from the first visible line
             let updateCaretToOffset lineOffset = 
@@ -2479,6 +2499,16 @@ type internal CommandUtil
                     _textView.ViewScroller.ScrollViewportVerticallyByLines(scrollDirection, count)
                     updateCaretToOffset lineOffset
             | _ -> ()
+
+            // At this point the view has been scolled and the caret is on the proper line.  Need to
+            // adjust the caret within the line to the appropriate column
+            if _globalSettings.StartOfLine then
+                let point = SnapshotLineUtil.GetFirstNonBlankOrEnd x.CaretLine
+                TextViewUtil.MoveCaretToPoint _textView point
+            else
+                let point = SnapshotLineUtil.GetSpaceOrEnd x.CaretLine maintainSpacesToCaret _localSettings.TabStop
+                TextViewUtil.MoveCaretToPoint _textView point
+                _commonOperations.MaintainCaretColumn <- MaintainCaretColumn.Spaces maintainSpacesToCaret
 
         with 
         // Dealing with ITextViewLines can lead to an exception (particularly during layout).  Need
@@ -2540,6 +2570,7 @@ type internal CommandUtil
                 _commonOperations.MaintainCaretColumn <- MaintainCaretColumn.Spaces columnSpaces
 
             _textView.ViewScroller.ScrollViewportVerticallyByLines(direction, count)
+
             let textViewLines = _textView.TextViewLines
             match direction with
             | ScrollDirection.Up ->
@@ -2549,6 +2580,8 @@ type internal CommandUtil
                 if x.CaretPoint.Position < textViewLines.FirstVisibleLine.Start.Position then
                     updateCaret textViewLines.FirstVisibleLine
             | _ -> ()
+
+            _commonOperations.AdjustCaretForScrollOffset()
 
         with 
         // Dealing with ITextViewLines can lead to an exception (particularly during layout).  Need

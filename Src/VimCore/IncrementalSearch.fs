@@ -75,6 +75,11 @@ type internal IncrementalSearch
 
     member x.InSearch = Option.isSome _incrementalSearchSession
 
+    member x.InPasteWait = 
+        match _incrementalSearchSession with
+        | Some session -> session.HistorySession.InPasteWait
+        | None -> false
+
     /// There is a big gap between the behavior and documentation of key mapping for an 
     /// incremental search operation.  The documentation properly documents the language
     /// mapping in "help language-mapping" and 'help imsearch'.  But it doesn't document
@@ -100,7 +105,7 @@ type internal IncrementalSearch
         let searchResult = SearchResult.NotFound (searchData, false)
         let incrementalSearchData = {
             SearchResult = searchResult
-            SearchText = match path with | Path.Forward -> "/" | Path.Backward -> "?"
+            SearchText = ""
         }
         let startPoint = start.Snapshot.CreateTrackingPoint(start.Position, PointTrackingMode.Negative)
 
@@ -120,6 +125,7 @@ type internal IncrementalSearch
         let historyClient = { 
             new IHistoryClient<ITrackingPoint, SearchResult> with
                 member this.HistoryList = _vimData.SearchHistory
+                member this.RegisterMap = _vimBufferData.Vim.RegisterMap
                 member this.RemapMode = x.RemapMode
                 member this.Beep() = _operations.Beep()
                 member this.ProcessCommand data command = runActive (fun session -> x.RunSearch session data command) data
@@ -172,11 +178,7 @@ type internal IncrementalSearch
             | SearchResult.NotFound _ -> x.ResetView ()
 
         // Update all of our internal state before we start raising events 
-        let searchText = 
-            match incrementalSearchData.SearchData.Path with
-            | Path.Forward -> "/" + rawPattern
-            | Path.Backward -> "?" + rawPattern
-        { SearchResult = searchResult; SearchText = searchText }
+        { SearchResult = searchResult; SearchText = rawPattern }
 
     /// Called when the processing is completed.  Raise the completed event and return
     /// the final SearchResult
@@ -213,6 +215,7 @@ type internal IncrementalSearch
 
     interface IIncrementalSearch with
         member x.InSearch = x.InSearch
+        member x.InPasteWait = x.InPasteWait
         member x.WordNavigator = _wordNavigator
         member x.CurrentSearchData = x.CurrentSearchData
         member x.CurrentSearchResult = x.CurrentSearchResult

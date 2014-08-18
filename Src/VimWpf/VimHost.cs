@@ -56,11 +56,6 @@ namespace Vim.UI.Wpf
             get { return true; }
         }
 
-        public abstract IFontProperties FontProperties
-        {
-            get;
-        }
-
         public virtual DefaultSettings DefaultSettings
         {
             get { return DefaultSettings.GVim73; }
@@ -141,6 +136,11 @@ namespace Vim.UI.Wpf
         public abstract string GetName(ITextBuffer value);
 
         public abstract int GetTabIndex(ITextView textView);
+
+        public virtual WordWrapStyles GetWordWrapStyle(ITextView textView)
+        {
+            return WordWrapStyles.VisibleGlyphs | WordWrapStyles.WordWrap;
+        }
 
         public virtual bool TryGetFocusedTextView(out ITextView textView)
         {
@@ -263,7 +263,7 @@ namespace Vim.UI.Wpf
             }
         }
 
-        public abstract void RunVisualStudioCommand(string command, string argument);
+        public abstract void RunVisualStudioCommand(ITextView textView, string command, string argument);
 
         public virtual bool Save(ITextBuffer textBuffer)
         {
@@ -529,6 +529,11 @@ namespace Vim.UI.Wpf
             return GetTabIndex(textView);
         }
 
+        WordWrapStyles IVimHost.GetWordWrapStyle(ITextView textView)
+        {
+            return GetWordWrapStyle(textView);
+        }
+
         bool IVimHost.GoToDefinition()
         {
             return GoToDefinition();
@@ -604,9 +609,9 @@ namespace Vim.UI.Wpf
             return RunCommand(command, arguments, vimData);
         }
 
-        void IVimHost.RunVisualStudioCommand(string command, string argument)
+        void IVimHost.RunVisualStudioCommand(ITextView textView, string command, string argument)
         {
-            RunVisualStudioCommand(command, argument);
+            RunVisualStudioCommand(textView, command, argument);
         }
 
         bool IVimHost.Save(ITextBuffer value)

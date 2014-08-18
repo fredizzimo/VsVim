@@ -2,7 +2,6 @@
 
 namespace Vim
 
-// TODO: Should rename this to VimConstants to avoid name ambiguities 
 module VimConstants =
 
     /// Content type which Vim hosts should create an IVimBuffer for
@@ -28,10 +27,10 @@ module VimConstants =
 
 #if DEBUG
     [<Literal>]
-    let VersionNumber = "1.6.0.2 Debug"
+    let VersionNumber = "1.7.0.99 Debug"
 #else
     [<Literal>]
-    let VersionNumber = "1.6.0.2"
+    let VersionNumber = "1.7.0.99"
 #endif
 
 

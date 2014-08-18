@@ -51,12 +51,19 @@ namespace Vim.UI.Wpf.Implementation.CommandMargin
             typeof(CommandMarginControl),
             new PropertyMetadata(10.0));
 
+        public static readonly DependencyProperty IsStatuslineVisibleProperty = DependencyProperty.Register(
+            "IsStatuslineVisible", 
+            typeof (Visibility), 
+            typeof (CommandMarginControl), 
+            new PropertyMetadata(default(Visibility)));
+
+
         /// <summary>
-        /// The primary status line for Vim
+        /// The user defined status in extra line
         /// </summary>
         public string StatusLine
         {
-            get { return (string)GetValue(StatusLineProperty); }
+            get { return (string) GetValue(StatusLineProperty); }
             set { SetValue(StatusLineProperty, value); }
         }
 
@@ -104,6 +111,13 @@ namespace Vim.UI.Wpf.Implementation.CommandMargin
         public TextBox CommandLineTextBox
         {
             get { return _commandLineInput; }
+        }
+
+
+        public Visibility IsStatuslineVisible
+        {
+            get { return (Visibility) GetValue(IsStatuslineVisibleProperty); }
+            set { SetValue(IsStatuslineVisibleProperty, value); }
         }
 
         public CommandMarginControl()

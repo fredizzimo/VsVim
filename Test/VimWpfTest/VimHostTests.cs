@@ -88,7 +88,7 @@ namespace Vim.UI.Wpf.UnitTest
                 throw new NotImplementedException();
             }
 
-            public override void RunVisualStudioCommand(string command, string argument)
+            public override void RunVisualStudioCommand(ITextView textView, string command, string argument)
             {
                 throw new NotImplementedException();
             }
@@ -104,11 +104,6 @@ namespace Vim.UI.Wpf.UnitTest
             }
 
             public override int TabCount
-            {
-                get { throw new NotImplementedException(); }
-            }
-
-            public override IFontProperties FontProperties
             {
                 get { throw new NotImplementedException(); }
             }

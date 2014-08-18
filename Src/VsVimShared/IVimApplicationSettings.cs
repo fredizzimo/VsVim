@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using Vim;
 
-namespace VsVim
+namespace Vim.VisualStudio
 {
     /// <summary>
     /// Arguments passed to application settings changed event handlers
@@ -19,6 +19,13 @@ namespace VsVim
         VsVimRc,
         VimRc,
         Both
+    }
+
+    public enum WordWrapDisplay
+    {
+        Glyph,
+        AutoIndent,
+        All,
     }
 
     /// <summary>
@@ -63,14 +70,19 @@ namespace VsVim
         VimRcLoadSetting VimRcLoadSetting { get; set; }
 
         /// <summary>
+        /// Controls how word wraps are displayed
+        /// </summary>
+        WordWrapDisplay WordWrapDisplay { get; set; }
+
+        /// <summary>
         /// The key bindings were updated 
         /// </summary>
         bool HaveUpdatedKeyBindings { get; set; }
 
         /// <summary>
-        /// Have the settings for 'backspace' and 'whichwrap'
+        /// Have we notified the user about loading their vimrc file?
         /// </summary>
-        bool HaveNotifiedBackspaceSetting { get; set; }
+        bool HaveNotifiedVimRcLoad { get; set; }
 
         /// <summary>
         /// The conflicting key binding margin was ignored

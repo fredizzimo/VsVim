@@ -22,6 +22,7 @@ module GlobalSettingNames =
     let IncrementalSearchName = "incsearch"
     let JoinSpacesName = "joinspaces"
     let KeyModelName = "keymodel"
+    let LastStatusName = "laststatus"
     let MagicName = "magic"
     let MaxMapDepth =  "maxmapdepth"
     let MouseModelName = "mousemodel"
@@ -35,6 +36,7 @@ module GlobalSettingNames =
     let ShellFlagName = "shellcmdflag"
     let SmartCaseName = "smartcase"
     let StartOfLineName = "startofline"
+    let StatusLineName = "statusline"
     let TildeOpName = "tildeop"
     let TimeoutExName = "ttimeout"
     let TimeoutName = "timeout"
@@ -250,20 +252,20 @@ type SettingEventArgs(_setting : Setting, _isValueChanged : bool) =
 type IVimSettings =
 
     /// Returns a sequence of all of the settings and values
-    abstract AllSettings : Setting seq
+    abstract AllSettings : Setting list
 
     /// Try and set a setting to the passed in value.  This can fail if the value does not 
     /// have the correct type.  The provided name can be the full name or abbreviation
-    abstract TrySetValue : settingName : string -> value : SettingValue -> bool
+    abstract TrySetValue : settingNameOrAbbrev : string -> value : SettingValue -> bool
 
     /// Try and set a setting to the passed in value which originates in string form.  This 
     /// will fail if the setting is not found or the value cannot be converted to the appropriate
     /// value
-    abstract TrySetValueFromString : settingName : string -> strValue : string -> bool
+    abstract TrySetValueFromString : settingNameOrAbbrev : string -> strValue : string -> bool
 
     /// Get the value for the named setting.  The name can be the full setting name or an 
     /// abbreviation
-    abstract GetSetting : settingName : string -> Setting option
+    abstract GetSetting : settingNameOrAbbrev : string -> Setting option
 
     /// Raised when a Setting changes
     [<CLIEvent>]
@@ -375,6 +377,9 @@ and IVimGlobalSettings =
     /// The 'keymodel' in a type safe form
     abstract KeyModelOptions : KeyModelOptions with get, set
 
+    /// The value of this option influences when a window will have a status line
+    abstract LastStatus : int with get, set
+
     /// The 'mousemodel' setting
     abstract MouseModel : string with get, set
 
@@ -398,6 +403,9 @@ and IVimGlobalSettings =
 
     abstract StartOfLine : bool with get, set
 
+    /// This option determines the content of the status line.
+    abstract StatusLine : string with get, set
+    
     /// Controls the behavior of ~ in normal mode
     abstract TildeOp : bool with get, set
 

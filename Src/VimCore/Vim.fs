@@ -466,7 +466,7 @@ type internal Vim
     /// Close all IVimBuffer instances
     member x.CloseAllVimBuffers() =
         x.VimBuffers
-        |> List.iter (fun vimBuffer -> vimBuffer.Close())
+        |> List.iter (fun vimBuffer -> if not vimBuffer.IsClosed then vimBuffer.Close())
 
     /// Create an IVimTextBuffer for the given ITextBuffer.  If an IVimLocalSettings instance is 
     /// provided then attempt to copy them into the created IVimTextBuffer copy of the 
@@ -594,6 +594,7 @@ type internal Vim
                 | Some (vimRcPath, lines) ->
                     _globalSettings.VimRc <- vimRcPath.FilePath
                     let textView = _vimHost.CreateHiddenTextView()
+                    let mutable createdVimBuffer : IVimBuffer option = None
         
                     try
                         // For the vimrc IVimBuffer we go straight to the factory methods.  We don't want
@@ -602,6 +603,7 @@ type internal Vim
                         let vimTextBuffer = _bufferFactoryService.CreateVimTextBuffer textView.TextBuffer x
                         let vimBufferData = _bufferFactoryService.CreateVimBufferData vimTextBuffer textView
                         let vimBuffer = _bufferFactoryService.CreateVimBuffer vimBufferData
+                        createdVimBuffer <- Some vimBuffer
 
                         // Actually parse and run all of the commands
                         let vimInterpreter = x.GetVimInterpreter vimBuffer
@@ -609,10 +611,19 @@ type internal Vim
 
                         _vimRcLocalSettings <- LocalSettings.Copy vimBuffer.LocalSettings
                         _vimRcWindowSettings <- WindowSettings.Copy vimBuffer.WindowSettings
-                        _vimRcState <- VimRcState.LoadSucceeded vimRcPath.FilePath
+                        _vimRcState <- VimRcState.LoadSucceeded vimRcPath
                     finally
                         // Be careful not to leak the ITextView in the case of an exception
                         textView.Close()
+
+                        // In general it is the responsibility of the host to close IVimBuffer instances when
+                        // the corresponding ITextView is closed.  In this particular case though we don't actually 
+                        // inform the host it is created so make sure it gets closed here 
+                        match createdVimBuffer with
+                        | Some vimBuffer -> 
+                            if not vimBuffer.IsClosed then
+                                vimBuffer.Close()
+                        | None -> ()
             finally
                 _isLoadingVimRc <- false
 

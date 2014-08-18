@@ -2,19 +2,13 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Composition;
-using System.Globalization;
-using System.Linq;
 using EditorUtils;
-using EnvDTE;
-using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Settings;
 using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.Shell.Settings;
 using Vim.UI.Wpf;
 using Vim;
 
-namespace VsVim.Implementation.Settings
+namespace Vim.VisualStudio.Implementation.Settings
 {
     [Export(typeof(IVimApplicationSettings))]
     internal sealed class VimApplicationSettings : IVimApplicationSettings
@@ -25,13 +19,14 @@ namespace VsVim.Implementation.Settings
         internal const string EnableExternalEditMonitoringName = "EnableExternalEditMonitoring";
         internal const string VimRcLoadSettingName = "VimRcLoadSetting";
         internal const string HaveUpdatedKeyBindingsName = "HaveUpdatedKeyBindings";
-        internal const string HaveNotifiedBackspaceSettingName = "HaveNotifiedBackspaceSetting";
+        internal const string HaveNotifiedVimRcLoadName = "HaveNotifiedVimRcLoad";
         internal const string IgnoredConflictingKeyBindingName = "IgnoredConflictingKeyBinding";
         internal const string RemovedBindingsName = "RemovedBindings";
         internal const string KeyMappingIssueFixedName = "EnterDeletekeyMappingIssue";
         internal const string UseEditorIndentName = "UseEditorIndent";
         internal const string UseEditorDefaultsName = "UseEditorDefaults";
         internal const string UseEditorTabAndBackspaceName = "UseEditorTabAndBackspace";
+        internal const string WordWrapDisplayName = "WordWrapDisplay";
         internal const string ErrorGetFormat = "Cannot get setting {0}";
         internal const string ErrorSetFormat = "Cannot set setting {0}";
 
@@ -197,7 +192,7 @@ namespace VsVim.Implementation.Settings
 
         VimRcLoadSetting IVimApplicationSettings.VimRcLoadSetting
         {
-            get { return GetEnum(VimRcLoadSettingName, defaultValue: VimRcLoadSetting.VsVimRc); }
+            get { return GetEnum(VimRcLoadSettingName, defaultValue: VimRcLoadSetting.Both); }
             set { SetEnum(VimRcLoadSettingName, value); }
         }
 
@@ -237,10 +232,10 @@ namespace VsVim.Implementation.Settings
             set { SetBoolean(HaveUpdatedKeyBindingsName, value); }
         }
 
-        bool IVimApplicationSettings.HaveNotifiedBackspaceSetting
+        bool IVimApplicationSettings.HaveNotifiedVimRcLoad
         {
-            get { return GetBoolean(HaveNotifiedBackspaceSettingName, defaultValue: false); }
-            set { SetBoolean(HaveNotifiedBackspaceSettingName, value); }
+            get { return GetBoolean(HaveNotifiedVimRcLoadName, defaultValue: false); }
+            set { SetBoolean(HaveNotifiedVimRcLoadName, value); }
         }
 
         bool IVimApplicationSettings.IgnoredConflictingKeyBinding
@@ -253,6 +248,12 @@ namespace VsVim.Implementation.Settings
         {
             get { return GetBoolean(KeyMappingIssueFixedName, defaultValue: false); }
             set { SetBoolean(KeyMappingIssueFixedName, value); }
+        }
+
+        WordWrapDisplay IVimApplicationSettings.WordWrapDisplay
+        {
+            get { return GetEnum<WordWrapDisplay>(WordWrapDisplayName, WordWrapDisplay.Glyph); }
+            set { SetEnum(WordWrapDisplayName, value); }
         }
 
         ReadOnlyCollection<CommandKeyBinding> IVimApplicationSettings.RemovedBindings

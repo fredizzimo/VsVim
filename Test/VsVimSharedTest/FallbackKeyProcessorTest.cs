@@ -1,4 +1,5 @@
 ﻿using EnvDTE;
+using Microsoft.VisualStudio.Shell.Interop;
 using Moq;
 using System;
 using System.Collections.Generic;
@@ -10,14 +11,15 @@ using Vim;
 using Vim.UI.Wpf;
 using Vim.UnitTest;
 using Vim.UnitTest.Mock;
-using VsVim.Implementation.Misc;
+using Vim.VisualStudio.Implementation.Misc;
 using Xunit;
 
-namespace VsVim.UnitTest
+namespace Vim.VisualStudio.UnitTest
 {
     public abstract class FallbackKeyProcessorTest : VimTestBase
     {
         private FallbackKeyProcessor _keyProcessor;
+        private Mock<IVsShell> _vsShell;
         private Mock<_DTE> _dte;
         private Mock<Commands> _commands;
         private Mock<IVimApplicationSettings> _vimApplicationSettings;
@@ -31,6 +33,7 @@ namespace VsVim.UnitTest
             _commands = new Mock<Commands>(MockBehavior.Strict);
             _dte = new Mock<_DTE>(MockBehavior.Loose);
             _dte.SetupGet(x => x.Commands).Returns(_commands.Object);
+            _vsShell = new Mock<IVsShell>(MockBehavior.Loose);
             _removedBindingList = new List<CommandKeyBinding>();
             _vimApplicationSettings = new Mock<IVimApplicationSettings>(MockBehavior.Loose);
             _vimApplicationSettings
@@ -42,6 +45,7 @@ namespace VsVim.UnitTest
                 ? Vim.GetOrCreateVimBuffer(textView)
                 : null;
             _keyProcessor = new FallbackKeyProcessor(
+                _vsShell.Object,
                 _dte.Object,
                 CompositionContainer.GetExportedValue<IKeyUtil>(),
                 _vimApplicationSettings.Object,

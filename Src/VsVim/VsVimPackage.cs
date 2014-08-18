@@ -14,15 +14,15 @@ using System.ComponentModel.Composition.Hosting;
 using Vim;
 using Vim.Extensions;
 
-namespace VsVim
+namespace Vim.VisualStudio
 {
     [PackageRegistration(UseManagedResourcesOnly = true)]
     [InstalledProductRegistration("#110", "#112", productId: VimConstants.VersionNumber, IconResourceID = 400)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
-    [ProvideOptionPage(typeof(VsVim.Implementation.OptionPages.DefaultOptionPage), "VsVim", "Defaults", 0, 0, supportsAutomation: true)]
-    [ProvideOptionPage(typeof(VsVim.Implementation.OptionPages.KeyboardOptionPage), "VsVim", "Keyboard", 0, 0, supportsAutomation: true)]
+    [ProvideOptionPage(typeof(Vim.VisualStudio.Implementation.OptionPages.DefaultOptionPage), categoryName: "VsVim", pageName: "Defaults", categoryResourceID: 0, pageNameResourceID: 0, supportsAutomation: true)]
+    [ProvideOptionPage(typeof(Vim.VisualStudio.Implementation.OptionPages.KeyboardOptionPage), categoryName: "VsVim", pageName: "Keyboard", categoryResourceID: 0, pageNameResourceID: 0, supportsAutomation: true)]
     [Guid(GuidList.VsVimPackageString)]
-    public sealed class VsVimPackage : Package
+    public sealed class VsVimPackage : Package, IOleCommandTarget
     {
         private IComponentModel _componentModel;
         private ExportProvider _exportProvider;
@@ -40,21 +40,51 @@ namespace VsVim
             _componentModel = (IComponentModel)GetService(typeof(SComponentModel));
             _exportProvider = _componentModel.DefaultExportProvider;
             _vim = _exportProvider.GetExportedValue<IVim>();
-
-            // Add our command handlers for menu (commands must exist in the .vsct file)
-            OleMenuCommandService mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
-            if (null != mcs)
-            {
-                // Create the command for the menu item.
-                var optionsId = new CommandID(GuidList.VsVimCommandSet, (int)CommandIds.Options);
-                var optionsMenuItem = new MenuCommand(OnOptionsClick, optionsId);
-                mcs.AddCommand(optionsMenuItem);
-            }
         }
 
-        private void OnOptionsClick(object sender, EventArgs e)
+        #region IOleCommandTarget
+
+        int IOleCommandTarget.Exec(ref Guid commandGroup, uint commandId, uint commandExecOpt, IntPtr variantIn, IntPtr variantOut)
         {
-            ShowOptionPage(typeof(VsVim.Implementation.OptionPages.KeyboardOptionPage));
+            if (commandGroup == GuidList.VsVimCommandSet)
+            {
+                switch (commandId)
+                {
+                    case CommandIds.Options:
+                        ShowOptionPage(typeof(Vim.VisualStudio.Implementation.OptionPages.KeyboardOptionPage));
+                        break;
+                    default:
+                        Debug.Assert(false);
+                        break;
+                }
+
+                return VSConstants.S_OK;
+            }
+
+            return VSConstants.E_FAIL;
         }
+
+        int IOleCommandTarget.QueryStatus(ref Guid commandGroup, uint commandsCount, OLECMD[] commands, IntPtr pCmdText)
+        {
+            if (commandGroup == GuidList.VsVimCommandSet && commandsCount == 1)
+            {
+                switch (commands[0].cmdID)
+                {
+                    case CommandIds.Options:
+                        commands[0].cmdf = (uint)(OLECMDF.OLECMDF_ENABLED | OLECMDF.OLECMDF_SUPPORTED);
+                        break;
+                    default:
+                        commands[0].cmdf = 0;
+                        break;
+
+                }
+
+                return VSConstants.S_OK;
+            }
+
+            return VSConstants.E_FAIL;
+        }
+
+        #endregion 
     }
 }

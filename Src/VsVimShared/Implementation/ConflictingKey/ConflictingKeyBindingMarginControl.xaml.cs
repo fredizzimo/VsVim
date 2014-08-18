@@ -12,7 +12,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace VsVim.Implementation.ConflictingKey
+namespace Vim.VisualStudio.Implementation.ConflictingKey
 {
     /// <summary>
     /// Interaction logic for ConflictingKeyBindingsMargin.xaml
@@ -23,11 +23,6 @@ namespace VsVim.Implementation.ConflictingKey
         /// Raised when the Configure button is clicked
         /// </summary>
         public event EventHandler ConfigureClick;
-
-        /// <summary>
-        /// Raised when the Ignore button is clicked
-        /// </summary>
-        public event EventHandler IgnoreClick;
 
         public ConflictingKeyBindingMarginControl()
         {
@@ -42,15 +37,5 @@ namespace VsVim.Implementation.ConflictingKey
                 list(this, RoutedEventArgs.Empty);
             }
         }
-
-        private void OnIgnoreClick(object sender, RoutedEventArgs e)
-        {
-            var list = IgnoreClick;
-            if (list != null)
-            {
-                list(this, RoutedEventArgs.Empty);
-            }
-        }
-
     }
 }

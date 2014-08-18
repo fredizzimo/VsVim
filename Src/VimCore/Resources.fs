@@ -31,10 +31,14 @@ module internal Resources =
     let Common_SearchHitBottomWithout name = sprintf "search hit BOTTOM without match for: %s" name
     let Common_SearchHitTopWithout name = sprintf "search hit TOP without match for: %s" name
     let Common_SubstituteComplete subs lines = sprintf "%d substitutions on %d lines" subs lines
-    let Common_UndoChainBroken = "Undo chain broken. Falling back to Visual Studio undo"
-    let Common_UndoChainOrderError = "Undo chain order error. Falling back to Visual Studio undo"
-    let Common_UndoRedoUnexpected = "Unexpected undo / redo event. Falling back to Visual Studio undo"
     let Common_NoEnvironmentVariableFound = "No environment variable found"
+
+    let Undo_ChainBroken = "Undo chain broken. Falling back to Visual Studio undo"
+    let Undo_LinkedChainBroken = "Undo linked chain broken. Falling back to Visual Studio undo"
+    let Undo_ChainOrderErrorNormal = "Undo chain order error (normal). Falling back to Visual Studio undo"
+    let Undo_ChainOrderErrorLinked = "Undo chain order error (linked). Falling back to Visual Studio undo"
+    let Undo_RedoUnexpected = "Unexpected undo / redo event. Falling back to Visual Studio undo"
+    let Undo_LinkedOpenError = "Error opening linked undo transaction"
 
     let NormalMode_NoPreviousSearch = "No previous search"
     let NormalMode_NoWordUnderCursor = "No word under cursor"
@@ -106,5 +110,6 @@ module internal Resources =
     let Interpreter_UndefinedVariable name = sprintf "Undefined variable: %s" name
     let Interpreter_FunctionNotSupported = "function definitions are not supported"
     let Interpreter_CallNotSupported name = sprintf ":call to function %s not supported" name
+    let Interpreter_KeyMappingOptionNotSupported x = sprintf "Key mapping option is not supported: '%s'" x
 
 

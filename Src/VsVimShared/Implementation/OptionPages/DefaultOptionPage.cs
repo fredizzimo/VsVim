@@ -13,8 +13,9 @@ using Vim.UI.Wpf;
 using Microsoft.VisualStudio.TextManager.Interop;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Collections;
 
-namespace VsVim.Implementation.OptionPages
+namespace Vim.VisualStudio.Implementation.OptionPages
 {
     public sealed class DefaultOptionPage : DialogPage
     {
@@ -148,6 +149,22 @@ namespace VsVim.Implementation.OptionPages
 
         #endregion
 
+        #region WordWrapDisplaySettingConverter
+
+        public sealed class WordWrapDisplaySettingConverter : EnumMapConverter<WordWrapDisplay>
+        {
+            public override Dictionary<WordWrapDisplay, string> CreateMap()
+            {
+                var map = new Dictionary<WordWrapDisplay, string>();
+                map.Add(WordWrapDisplay.AutoIndent, "AutoIndent");
+                map.Add(WordWrapDisplay.Glyph, "Glyph");
+                map.Add(WordWrapDisplay.All, "AutoIndent + Glyph");
+               return map;
+            }
+        }
+
+        #endregion
+
         private const string CategoryGeneral = "General";
         private const string CategoryColors = "Item Colors";
         private const string CategoryEditing = "Vim Edit Behavior";
@@ -188,17 +205,17 @@ namespace VsVim.Implementation.OptionPages
         public bool EnableExternalEditMonitoring { get; set; }
 
         [DisplayName("Use Visual Studio Tab / Backspace")]
-        [Description("When false tab and backspace keys in insert mode will use vim rules.  This will take into account settings like 'softtabstop', 'tabstop', 'backspace', etc ...")]
+        [Description("Let Visual Studio control tab and backspace in insert mode.  This will cause VsVim to ignore settings like 'softtabstop', 'tabstop', 'backspace', etc ...")]
         [Category(CategoryEditing)]
         public bool UseEditorTabAndBackspace { get; set; }
 
         [DisplayName("Use Visual Studio Indent")]
-        [Description("Use Visual Studio indentation for new lines instead of strict 'autoindent' rules")]
+        [Description("Let Visual Studio control indentation for new lines instead of strict 'autoindent' rules")]
         [Category(CategoryEditing)]
         public bool UseEditorIndent { get; set; }
 
-        [DisplayName("Use Visual Studio Tab Size / Spaces")]
-        [Description("Use Visual Studio values to initialize 'tabsize' and 'expandtab'.  This will override values specified in a vsvimrc file")]
+        [DisplayName("Use Visual Studio Settings")]
+        [Description("Use Visual Studio values to initialize 'tabsize', 'expandtab', 'cursorline', etc ...  This will override values specified in a vsvimrc file")]
         [Category(CategoryEditing)]
         public bool UseEditorDefaults { get; set; }
 
@@ -207,6 +224,12 @@ namespace VsVim.Implementation.OptionPages
         [Category(CategoryGeneral)]
         [TypeConverter(typeof(VimRcLoadSettingConverter))]
         public VimRcLoadSetting VimRcLoadSetting { get; set; }
+
+        [DisplayName("Word Wrap Display")]
+        [Description("Controls how word wrap is displayed")]
+        [Category(CategoryGeneral)]
+        [TypeConverter(typeof(WordWrapDisplaySettingConverter))]
+        public WordWrapDisplay WordWrapDisplay { get; set; } 
 
         [DisplayName("Block Caret")]
         [Category(CategoryColors)]
@@ -262,6 +285,7 @@ namespace VsVim.Implementation.OptionPages
                 UseEditorTabAndBackspace = vimApplicationSettings.UseEditorTabAndBackspace;
                 VimRcLoadSetting = vimApplicationSettings.VimRcLoadSetting;
                 DisplayControlCharacters = vimApplicationSettings.DisplayControlChars;
+                WordWrapDisplay = vimApplicationSettings.WordWrapDisplay;
             }
 
             LoadColors();
@@ -281,6 +305,7 @@ namespace VsVim.Implementation.OptionPages
                 vimApplicationSettings.UseEditorTabAndBackspace = UseEditorTabAndBackspace;
                 vimApplicationSettings.VimRcLoadSetting = VimRcLoadSetting;
                 vimApplicationSettings.DisplayControlChars = DisplayControlCharacters;
+                vimApplicationSettings.WordWrapDisplay = WordWrapDisplay;
             }
 
             SaveColors();

@@ -38,9 +38,9 @@
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="EditorUtils, Version=1.3.1.0, Culture=neutral, PublicKeyToken=3d1514c4742e0252, processorArchitecture=MSIL">
+    <Reference Include="EditorUtils, Version=1.4.0.0, Culture=neutral, PublicKeyToken=3d1514c4742e0252, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\EditorUtils.1.3.1.0\lib\net40\EditorUtils.dll</HintPath>
+      <HintPath>..\..\packages\EditorUtils.1.4.0.0\lib\net40\EditorUtils.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.VisualStudio.CoreUtility, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="Microsoft.VisualStudio.Language.Intellisense, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
@@ -89,6 +89,7 @@
     <Compile Include="EditUtilTest.cs" />
     <Compile Include="Exports\OutlinerTaggerProvider.cs" />
     <Compile Include="HistoryListTest.cs" />
+    <Compile Include="HistorySessionTest.cs" />
     <Compile Include="MatchingTokenUtilTest.cs" />
     <Compile Include="ModeMapTest.cs" />
     <Compile Include="RegisterValueTest.cs" />
@@ -98,6 +99,7 @@
     <Compile Include="SnapshotOverlapPointTest.cs" />
     <Compile Include="SnapshotOverlapSpanTest.cs" />
     <Compile Include="StringUtilTest.cs" />
+    <Compile Include="TagBlockParserTest.cs" />
     <Compile Include="TestableProtectedOperations.cs" />
     <Compile Include="TextObjectUtilTest.cs" />
     <Compile Include="TokenStreamTest.cs" />
@@ -108,6 +110,7 @@
     <Compile Include="TestableSynchronizationContext.cs" />
     <Compile Include="TextChangeTest.cs" />
     <Compile Include="TokenizerTest.cs" />
+    <Compile Include="VimEditorHost.cs" />
     <Compile Include="VimHostTest.cs" />
     <Compile Include="VimRegexFactoryTest.cs" />
     <Compile Include="VisualSpanTest.cs" />
@@ -195,7 +198,7 @@
     <Compile Include="TextViewUtilTest.cs" />
     <Compile Include="BufferTrackingServiceTest.cs" />
     <Compile Include="UndoRedoOperationsTest.cs" />
-    <Compile Include="UndoTransactionTest.cs" />
+    <Compile Include="NormalUndoTransactionTest.cs" />
     <Compile Include="VimBufferFactoryIntegrationTest.cs" />
     <Compile Include="VimIntegrationTest.cs" />
     <Compile Include="VimTest.cs" />

@@ -9,58 +9,112 @@ using Vim.Extensions;
 using Vim.UI.Wpf.Implementation.CommandMargin;
 using Vim.UI.Wpf.Properties;
 using Vim.UnitTest.Mock;
+using Vim.UnitTest;
 
 namespace Vim.UI.Wpf.UnitTest
 {
-    public abstract class CommandMarginControllerTest
+    public abstract class CommandMarginControllerTest : VimTestBase
     {
         private readonly MockRepository _factory;
         private readonly CommandMarginControl _marginControl;
         private readonly CommandMarginController _controller;
+        private readonly MockVimBuffer _vimBuffer;
+        private readonly Mock<IIncrementalSearch> _search;
 
         protected CommandMarginControllerTest()
         {
             _factory = new MockRepository(MockBehavior.Strict);
             _marginControl = new CommandMarginControl();
-            _marginControl.StatusLine = String.Empty;
+            _marginControl.CommandLineTextBox.Text = String.Empty;
 
-            var vimBuffer = CreateVimBuffer();
+            _search = _factory.Create<IIncrementalSearch>();
+            _search.SetupGet(x => x.InSearch).Returns(false);
+            _search.SetupGet(x => x.InPasteWait).Returns(false);
+            _vimBuffer = new MockVimBuffer();
+            _vimBuffer.IncrementalSearchImpl = _search.Object;
+            _vimBuffer.VimImpl = MockObjectFactory.CreateVim(factory: _factory).Object;
+            _vimBuffer.CommandModeImpl = _factory.Create<ICommandMode>(MockBehavior.Loose).Object;
+            var textBuffer = CreateTextBuffer(new []{""});
+            _vimBuffer.TextViewImpl = TextEditorFactoryService.CreateTextView(textBuffer);
+
+            Mock<IVimGlobalSettings> globalSettings = new Mock<IVimGlobalSettings>();
+            _vimBuffer.GlobalSettingsImpl = globalSettings.Object;
+
             var editorFormatMap = _factory.Create<IEditorFormatMap>(MockBehavior.Loose);
             editorFormatMap.Setup(x => x.GetProperties(It.IsAny<string>())).Returns(new ResourceDictionary());
-            var fontProperties = MockObjectFactory.CreateFontProperties("Courier New", 10, _factory);
 
             var parentVisualElement = _factory.Create<FrameworkElement>();
 
             _controller = new CommandMarginController(
-                vimBuffer,
+                _vimBuffer,
                 parentVisualElement.Object,
                 _marginControl,
-                editorFormatMap.Object,
-                fontProperties.Object);
+                VimEditorHost.EditorFormatMapService.GetEditorFormatMap(_vimBuffer.TextView),
+                VimEditorHost.ClassificationFormatMapService.GetClassificationFormatMap(_vimBuffer.TextView));
         }
 
-        protected abstract IVimBuffer CreateVimBuffer();
+        public sealed class InCommandLineUpdateTest : CommandMarginControllerTest
+        {
+            [Fact]
+            public void Check()
+            {
+                Assert.False(_controller.InCommandLineUpdate);
+                bool check = false;
+                _marginControl.CommandLineTextBox.TextChanged += delegate
+                {
+                    Assert.True(_controller.InCommandLineUpdate);
+                    check = true;
+                };
+
+                _vimBuffer.RaiseErrorMessage("blah");
+                Assert.True(check);
+                Assert.False(_controller.InCommandLineUpdate);
+            }
+        }
+
+        public sealed class KeyInputEventTest : CommandMarginControllerTest
+        {
+            private static KeyInput GetKeyInput(char c)
+            {
+                return KeyInputUtil.CharToKeyInput(c);
+            }
+
+            [Fact]
+            public void InKeyEvent()
+            {
+                var keyInput = GetKeyInput('c');
+                _vimBuffer.RaiseKeyInputStart(keyInput);
+                Assert.True(_controller.InVimBufferKeyEvent);
+                _vimBuffer.RaiseKeyInputEnd(keyInput);
+                Assert.False(_controller.InVimBufferKeyEvent);
+            }
+
+            [Fact]
+            public void MessageEventNoKeyEvent()
+            {
+                var msg = "test";
+                _vimBuffer.RaiseErrorMessage(msg);
+                Assert.Equal(msg, _marginControl.CommandLineTextBox.Text);
+            }
+
+            [Fact]
+            public void MessageEventKeyEvent()
+            {
+                var msg = "test";
+                var keyInput = GetKeyInput('c');
+                _vimBuffer.RaiseKeyInputStart(keyInput);
+                _vimBuffer.RaiseErrorMessage(msg);
+                Assert.NotEqual(msg, _marginControl.CommandLineTextBox.Text);
+                _vimBuffer.RaiseKeyInputEnd(keyInput);
+                Assert.Equal(msg, _marginControl.CommandLineTextBox.Text);
+            }
+        }
 
         public sealed class MiscTest : CommandMarginControllerTest
         {
-            private MockVimBuffer _vimBuffer;
-            private Mock<IIncrementalSearch> _search;
-
             public MiscTest()
             {
 
-            }
-
-            protected override IVimBuffer CreateVimBuffer()
-            {
-                _search = _factory.Create<IIncrementalSearch>();
-                _search.SetupGet(x => x.InSearch).Returns(false);
-                _vimBuffer = new MockVimBuffer();
-                _vimBuffer.IncrementalSearchImpl = _search.Object;
-                _vimBuffer.VimImpl = MockObjectFactory.CreateVim(factory: _factory).Object;
-                _vimBuffer.CommandModeImpl = _factory.Create<ICommandMode>(MockBehavior.Loose).Object;
-
-                return _vimBuffer;
             }
 
             private void SimulateKeystroke()
@@ -75,10 +129,9 @@ namespace Vim.UI.Wpf.UnitTest
                 searchKind = searchKind ?? SearchKind.Forward;
 
                 var data = new SearchData(pattern, SearchOffsetData.None, searchKind, searchOptions);
-                var text = (searchKind.IsAnyForward ? "/" : "?") + pattern;
                 _search.SetupGet(x => x.InSearch).Returns(true).Verifiable();
                 _search.SetupGet(x => x.CurrentSearchData).Returns(data).Verifiable();
-                _search.SetupGet(x => x.CurrentSearchText).Returns(text).Verifiable();
+                _search.SetupGet(x => x.CurrentSearchText).Returns(pattern).Verifiable();
             }
 
             /// <summary>
@@ -91,7 +144,7 @@ namespace Vim.UI.Wpf.UnitTest
                 mode.SetupGet(x => x.ModeKind).Returns(ModeKind.Normal);
                 _vimBuffer.NormalModeImpl = mode.Object;
                 _vimBuffer.RaiseSwitchedMode(new SwitchModeEventArgs(_vimBuffer.NormalMode, _vimBuffer.NormalModeImpl));
-                Assert.Equal(String.Empty, _marginControl.StatusLine);
+                Assert.Equal(String.Empty, _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -103,7 +156,7 @@ namespace Vim.UI.Wpf.UnitTest
                 var mode = new Mock<IMode>();
                 mode.SetupGet(x => x.ModeKind).Returns(ModeKind.Insert);
                 _vimBuffer.RaiseSwitchedMode(new SwitchModeEventArgs(_vimBuffer.NormalMode, mode.Object));
-                Assert.Equal(Resources.InsertBanner, _marginControl.StatusLine);
+                Assert.Equal(Resources.InsertBanner, _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -114,10 +167,10 @@ namespace Vim.UI.Wpf.UnitTest
             {
                 var mode = new Mock<IMode>();
                 mode.SetupGet(x => x.ModeKind).Returns(ModeKind.Insert);
-                _marginControl.StatusLine = String.Empty;
+                _marginControl.CommandLineTextBox.Text = String.Empty;
                 _vimBuffer.RaiseKeyInputStart(KeyInputUtil.CharToKeyInput('c'));
                 _vimBuffer.RaiseSwitchedMode(new SwitchModeEventArgs(_vimBuffer.NormalMode, mode.Object));
-                Assert.Equal(String.Empty, _marginControl.StatusLine);
+                Assert.Equal(String.Empty, _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -129,12 +182,12 @@ namespace Vim.UI.Wpf.UnitTest
                 var mode = new Mock<IMode>();
                 mode.SetupGet(x => x.ModeKind).Returns(ModeKind.Insert);
                 var ki = KeyInputUtil.CharToKeyInput('c');
-                _marginControl.StatusLine = String.Empty;
+                _marginControl.CommandLineTextBox.Text = String.Empty;
                 _vimBuffer.RaiseKeyInputStart(ki);
                 _vimBuffer.RaiseSwitchedMode(new SwitchModeEventArgs(_vimBuffer.NormalMode, mode.Object));
-                Assert.Equal(String.Empty, _marginControl.StatusLine);
+                Assert.Equal(String.Empty, _marginControl.CommandLineTextBox.Text);
                 _vimBuffer.RaiseKeyInputEnd(ki);
-                Assert.Equal(Resources.InsertBanner, _marginControl.StatusLine);
+                Assert.Equal(Resources.InsertBanner, _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -148,7 +201,7 @@ namespace Vim.UI.Wpf.UnitTest
                 mode.SetupGet(x => x.Command).Returns("");
                 _vimBuffer.CommandModeImpl = mode.Object;
                 _vimBuffer.RaiseSwitchedMode(_vimBuffer.CommandModeImpl);
-                Assert.Equal(":", _marginControl.StatusLine);
+                Assert.Equal(":", _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -162,7 +215,7 @@ namespace Vim.UI.Wpf.UnitTest
                 mode.SetupGet(x => x.Command).Returns("foo");
                 _vimBuffer.CommandModeImpl = mode.Object;
                 _vimBuffer.RaiseSwitchedMode(_vimBuffer.CommandModeImpl);
-                Assert.Equal(":foo", _marginControl.StatusLine);
+                Assert.Equal(":foo", _marginControl.CommandLineTextBox.Text);
             }
 
             [Fact]
@@ -171,7 +224,7 @@ namespace Vim.UI.Wpf.UnitTest
                 var mode = new Mock<IMode>();
                 mode.SetupGet(x => x.ModeKind).Returns(ModeKind.Replace);
                 _vimBuffer.RaiseSwitchedMode(mode.Object);
-                Assert.Equal(Resources.ReplaceBanner, _marginControl.StatusLine);
+                Assert.Equal(Resources.ReplaceBanner, _marginControl.CommandLineTextBox.Text);
             }
 
             [Fact]
@@ -182,7 +235,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.InOneTimeCommandImpl = FSharpOption.Create(ModeKind.Insert);
                 _vimBuffer.NormalModeImpl = mode.Object;
                 _vimBuffer.RaiseSwitchedMode(mode.Object);
-                Assert.Equal(String.Format(Resources.NormalOneTimeCommandBanner, "insert"), _marginControl.StatusLine);
+                Assert.Equal(String.Format(Resources.NormalOneTimeCommandBanner, "insert"), _marginControl.CommandLineTextBox.Text);
             }
 
             [Fact]
@@ -194,7 +247,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.SubstituteConfirmModeImpl = mode.Object;
                 _vimBuffer.RaiseSwitchedMode(mode.Object);
 
-                Assert.Equal(string.Format(Resources.SubstituteConfirmBannerFormat, "here"), _marginControl.StatusLine);
+                Assert.Equal(string.Format(Resources.SubstituteConfirmBannerFormat, "here"), _marginControl.CommandLineTextBox.Text);
                 _factory.Verify();
             }
 
@@ -202,7 +255,7 @@ namespace Vim.UI.Wpf.UnitTest
             public void StatusMessage1()
             {
                 _vimBuffer.RaiseStatusMessage("foo");
-                Assert.Equal("foo", _marginControl.StatusLine);
+                Assert.Equal("foo", _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -214,7 +267,7 @@ namespace Vim.UI.Wpf.UnitTest
                 var ki = KeyInputUtil.CharToKeyInput('c');
                 _vimBuffer.RaiseKeyInputStart(ki);
                 _vimBuffer.RaiseStatusMessage("foo");
-                Assert.Equal(String.Empty, _marginControl.StatusLine);
+                Assert.Equal(String.Empty, _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -227,7 +280,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.RaiseKeyInputStart(ki);
                 _vimBuffer.RaiseStatusMessage("foo");
                 _vimBuffer.RaiseKeyInputEnd(ki);
-                Assert.Equal("foo", _marginControl.StatusLine);
+                Assert.Equal("foo", _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -243,14 +296,14 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.RaiseStatusMessage("foo");
                 _vimBuffer.RaiseSwitchedMode(mode.Object);
                 _vimBuffer.RaiseKeyInputEnd(ki);
-                Assert.Equal("foo", _marginControl.StatusLine);
+                Assert.Equal("foo", _marginControl.CommandLineTextBox.Text);
             }
 
             [Fact]
             public void StatusMessage5()
             {
                 _vimBuffer.RaiseStatusMessage("foo" + Environment.NewLine + "bar");
-                Assert.Equal("foo" + Environment.NewLine + "bar", _marginControl.StatusLine);
+                Assert.Equal("foo" + Environment.NewLine + "bar", _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -262,7 +315,7 @@ namespace Vim.UI.Wpf.UnitTest
                 var ki = KeyInputUtil.CharToKeyInput('c');
                 _vimBuffer.RaiseKeyInputStart(ki);
                 _vimBuffer.RaiseStatusMessage("foo" + Environment.NewLine + "bar");
-                Assert.Equal(String.Empty, _marginControl.StatusLine);
+                Assert.Equal(String.Empty, _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -275,7 +328,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.RaiseKeyInputStart(ki);
                 _vimBuffer.RaiseStatusMessage("foo" + Environment.NewLine + "bar");
                 _vimBuffer.RaiseKeyInputEnd(ki);
-                Assert.Equal("foo" + Environment.NewLine + "bar", _marginControl.StatusLine);
+                Assert.Equal("foo" + Environment.NewLine + "bar", _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -291,14 +344,14 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.RaiseStatusMessage("foo" + Environment.NewLine + "bar");
                 _vimBuffer.RaiseSwitchedMode(mode.Object);
                 _vimBuffer.RaiseKeyInputEnd(ki);
-                Assert.Equal("foo" + Environment.NewLine + "bar", _marginControl.StatusLine);
+                Assert.Equal("foo" + Environment.NewLine + "bar", _marginControl.CommandLineTextBox.Text);
             }
 
             [Fact]
             public void ErrorMessage1()
             {
                 _vimBuffer.RaiseErrorMessage("foo");
-                Assert.Equal("foo", _marginControl.StatusLine);
+                Assert.Equal("foo", _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -310,7 +363,7 @@ namespace Vim.UI.Wpf.UnitTest
                 var ki = KeyInputUtil.CharToKeyInput('c');
                 _vimBuffer.RaiseKeyInputStart(ki);
                 _vimBuffer.RaiseErrorMessage("foo");
-                Assert.Equal(String.Empty, _marginControl.StatusLine);
+                Assert.Equal(String.Empty, _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -323,7 +376,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.RaiseKeyInputStart(ki);
                 _vimBuffer.RaiseErrorMessage("foo");
                 _vimBuffer.RaiseKeyInputEnd(ki);
-                Assert.Equal("foo", _marginControl.StatusLine);
+                Assert.Equal("foo", _marginControl.CommandLineTextBox.Text);
             }
 
             /// <summary>
@@ -339,7 +392,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.RaiseErrorMessage("foo");
                 _vimBuffer.RaiseSwitchedMode(mode.Object);
                 _vimBuffer.RaiseKeyInputEnd(ki);
-                Assert.Equal("foo", _marginControl.StatusLine);
+                Assert.Equal("foo", _marginControl.CommandLineTextBox.Text);
             }
 
             [Fact]
@@ -352,7 +405,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.NormalModeImpl = mode.Object;
 
                 SimulateKeystroke();
-                Assert.Equal("foo", _marginControl.StatusLine);
+                Assert.Equal("foo", _marginControl.CommandLineTextBox.Text);
                 mode.Verify();
                 _factory.Verify();
             }
@@ -366,7 +419,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.CommandModeImpl = mode.Object;
 
                 SimulateKeystroke();
-                Assert.Equal(":foo", _marginControl.StatusLine);
+                Assert.Equal(":foo", _marginControl.CommandLineTextBox.Text);
                 mode.Verify();
             }
 
@@ -379,7 +432,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.DisabledModeImpl = mode.Object;
 
                 SimulateKeystroke();
-                Assert.Equal("foo", _marginControl.StatusLine);
+                Assert.Equal("foo", _marginControl.CommandLineTextBox.Text);
                 mode.Verify();
             }
 
@@ -394,7 +447,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.ModeKindImpl = ModeKind.Normal;
                 SimulateSearch("cat");
                 SimulateKeystroke();
-                Assert.Equal("/cat", _marginControl.StatusLine);
+                Assert.Equal("/cat", _marginControl.CommandLineTextBox.Text);
                 _factory.Verify();
             }
 
@@ -406,7 +459,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.ModeKindImpl = ModeKind.Normal;
                 SimulateSearch("cat", SearchKind.Backward);
                 SimulateKeystroke();
-                Assert.Equal("?cat", _marginControl.StatusLine);
+                Assert.Equal("?cat", _marginControl.CommandLineTextBox.Text);
                 _factory.Verify();
             }
 
@@ -421,7 +474,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.ModeKindImpl = ModeKind.VisualCharacter;
                 SimulateSearch("cat");
                 SimulateKeystroke();
-                Assert.Equal("/cat", _marginControl.StatusLine);
+                Assert.Equal("/cat", _marginControl.CommandLineTextBox.Text);
                 _factory.Verify();
             }
 
@@ -433,7 +486,7 @@ namespace Vim.UI.Wpf.UnitTest
                 _vimBuffer.ModeKindImpl = ModeKind.VisualCharacter;
                 SimulateSearch("cat", SearchKind.Backward);
                 SimulateKeystroke();
-                Assert.Equal("?cat", _marginControl.StatusLine);
+                Assert.Equal("?cat", _marginControl.CommandLineTextBox.Text);
                 _factory.Verify();
             }
 
@@ -451,7 +504,7 @@ namespace Vim.UI.Wpf.UnitTest
                 SimulateKeystroke();
                 _search.SetupGet(x => x.InSearch).Returns(false);
                 SimulateKeystroke();
-                Assert.Equal(Resources.VisualCharacterBanner, _marginControl.StatusLine);
+                Assert.Equal(Resources.VisualCharacterBanner, _marginControl.CommandLineTextBox.Text);
             }
         }
     }

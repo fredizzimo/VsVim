@@ -59,9 +59,12 @@
 
       <Button guid="guidVsVimCmdSet" id="cmdidVsVimOptions" priority="0x0100" type="Button">
         <Parent guid="guidVsVimCmdSet" id="VsVimMenuGroup" />
+        <CommandFlag>CommandWellOnly</CommandFlag>
         <Strings>
           <CommandName>cmdidVsVimOptions</CommandName>
           <ButtonText>VsVim Options</ButtonText>
+          <CanonicalName>.VsVim.Options</CanonicalName>
+          <LocCanonicalName>.VsVim.Options</LocCanonicalName>
         </Strings>
       </Button>
 

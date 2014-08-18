@@ -18,7 +18,7 @@ using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio;
 using Microsoft.FSharp.Core;
 
-namespace VsVim
+namespace Vim.VisualStudio
 {
     /// <summary>
     /// Implement the IVimHost interface for Visual Studio functionality.  It's not responsible for 
@@ -122,7 +122,6 @@ namespace VsVim
         private readonly IVsExtensibility _vsExtensibility;
         private readonly ISharedService _sharedService;
         private readonly IVsMonitorSelection _vsMonitorSelection;
-        private readonly IFontProperties _fontProperties;
         private readonly IVimApplicationSettings _vimApplicationSettings;
         private readonly ISmartIndentationService _smartIndentationService;
 
@@ -159,11 +158,6 @@ namespace VsVim
             get { return _sharedService.GetWindowFrameState().WindowFrameCount; }
         }
 
-        public override IFontProperties FontProperties
-        {
-            get { return _fontProperties; }
-        }
-
         [ImportingConstructor]
         internal VsVimHost(
             IVsAdapter adapter,
@@ -187,7 +181,6 @@ namespace VsVim
             _textManager = textManager;
             _sharedService = sharedServiceFactory.Create();
             _vsMonitorSelection = serviceProvider.GetService<SVsShellMonitorSelection, IVsMonitorSelection>();
-            _fontProperties = new TextEditorFontProperties(serviceProvider);
             _vimApplicationSettings = vimApplicationSettings;
             _smartIndentationService = smartIndentationService;
 
@@ -195,10 +188,18 @@ namespace VsVim
             _vsMonitorSelection.AdviseSelectionEvents(this, out cookie);
         }
 
-        private bool SafeExecuteCommand(string command, string args = "")
+        private bool SafeExecuteCommand(ITextView contextTextView, string command, string args = "")
         {
             try
             {
+                // Many Visual Studio commands expect focus to be in the editor when 
+                // running.  Switch focus there if an appropriate ITextView is available
+                var wpfTextView = contextTextView as IWpfTextView;
+                if (wpfTextView != null)
+                {
+                    wpfTextView.VisualElement.Focus();
+                }
+
                 _dte.ExecuteCommand(command, args);
                 return true;
             }
@@ -259,10 +260,10 @@ namespace VsVim
 
             if (target != null)
             {
-                return SafeExecuteCommand(CommandNameGoToDefinition, target);
+                return SafeExecuteCommand(textView, CommandNameGoToDefinition, target);
             }
 
-            return SafeExecuteCommand(CommandNameGoToDefinition);
+            return SafeExecuteCommand(textView, CommandNameGoToDefinition);
         }
 
         private bool GoToDefinitionCore(ITextView textView, string target)
@@ -272,7 +273,7 @@ namespace VsVim
                 return GoToDefinitionCPlusPlus(textView, target);
             }
 
-            return SafeExecuteCommand(CommandNameGoToDefinition);
+            return SafeExecuteCommand(textView, CommandNameGoToDefinition);
         }
 
         /// <summary>
@@ -313,7 +314,8 @@ namespace VsVim
             var startedWithSelection = !textView.Selection.IsEmpty;
             textView.Selection.Clear();
             textView.Selection.Select(range.ExtentIncludingLineBreak, false);
-            SafeExecuteCommand("Edit.FormatSelection");
+            SafeExecuteCommand(textView, "Edit.FormatSelection");
+
             if (!startedWithSelection)
             {
                 textView.Selection.Clear();
@@ -463,7 +465,7 @@ namespace VsVim
                 : "View.PreviousError";
             for (var i = 0; i < count; i++)
             {
-                SafeExecuteCommand(command);
+                SafeExecuteCommand(null, command);
             }
 
             return true;
@@ -471,7 +473,7 @@ namespace VsVim
 
         public override HostResult Make(bool jumpToFirstError, string arguments)
         {
-            SafeExecuteCommand("Build.BuildSolution");
+            SafeExecuteCommand(null, "Build.BuildSolution");
             return HostResult.Success;
         }
 
@@ -510,9 +512,9 @@ namespace VsVim
             _dte.Quit();
         }
 
-        public override void RunVisualStudioCommand(string command, string argument)
+        public override void RunVisualStudioCommand(ITextView textView, string command, string argument)
         {
-            SafeExecuteCommand(command, argument);
+            SafeExecuteCommand(textView, command, argument);
         }
 
         /// <summary>
@@ -555,6 +557,28 @@ namespace VsVim
             }
 
             return result ? HostResult.Success : HostResult.NewError("Not Implemented");
+        }
+
+        public override WordWrapStyles GetWordWrapStyle(ITextView textView)
+        {
+            var style = WordWrapStyles.WordWrap;
+            switch (_vimApplicationSettings.WordWrapDisplay)
+            {
+                case WordWrapDisplay.All:
+                    style |= (WordWrapStyles.AutoIndent | WordWrapStyles.VisibleGlyphs);
+                    break;
+                case WordWrapDisplay.Glyph:
+                    style |= WordWrapStyles.VisibleGlyphs;
+                    break;
+                case WordWrapDisplay.AutoIndent:
+                    style |= WordWrapStyles.AutoIndent;
+                    break;
+                default:
+                    Contract.Assert(false);
+                    break;
+            }
+
+            return style;
         }
 
         public override FSharpOption<int> GetNewLineIndent(ITextView textView, ITextSnapshotLine contextLine, ITextSnapshotLine newLine)

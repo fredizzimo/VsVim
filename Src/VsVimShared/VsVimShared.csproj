@@ -10,8 +10,8 @@
     <ProjectGuid>{979DEDC6-25E2-494B-9E8F-6E42078C601C}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>VsVim</RootNamespace>
-    <AssemblyName>VsVim.Shared</AssemblyName>
+    <RootNamespace>Vim.VisualStudio</RootNamespace>
+    <AssemblyName>Vim.VisualStudio.Shared</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
     <RestorePackages>true</RestorePackages>
@@ -34,9 +34,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="EditorUtils, Version=1.3.1.0, Culture=neutral, PublicKeyToken=3d1514c4742e0252, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\EditorUtils.1.3.1.0\lib\net40\EditorUtils.dll</HintPath>
+    <Reference Include="EditorUtils">
+      <HintPath>..\..\packages\EditorUtils.1.4.0.0\lib\net40\EditorUtils.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.VisualStudio.Text.Data, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="Microsoft.VisualStudio.Text.Logic, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
@@ -130,11 +129,16 @@
     <Compile Include="Implementation\SharedService\DefaultSharedServiceFactory.cs" />
     <Compile Include="Implementation\SharedService\SharedServiceFactory.cs" />
     <Compile Include="IKeyboardOptionsProvider.cs" />
+    <Compile Include="Implementation\ToastNotification\ToastControl.xaml.cs">
+      <DependentUpon>ToastControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Implementation\ToastNotification\ToastNotificationService.cs" />
+    <Compile Include="Implementation\ToastNotification\ToastNotificationServiceProvider.cs" />
     <Compile Include="Implementation\UpgradeNotification\LinkBanner.xaml.cs">
       <DependentUpon>LinkBanner.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Implementation\UpgradeNotification\BackspaceNotificationMarginProvider.cs" />
-    <Compile Include="TextEditorFontProperties.cs" />
+    <Compile Include="Implementation\UpgradeNotification\VimRcLoadNotificationMarginProvider.cs" />
+    <Compile Include="IToastNotifaction.cs" />
     <Compile Include="Implementation\VisualAssist\IVisualAssistUtil.cs" />
     <Compile Include="Implementation\VisualAssist\VisualAssistKeyProcessor.cs" />
     <Compile Include="Implementation\VisualAssist\VisualAssistMargin.xaml.cs">
@@ -182,6 +186,10 @@
   </ItemGroup>
   <ItemGroup>
     <Page Include="Implementation\OptionPages\KeyboardSettingsControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Implementation\ToastNotification\ToastControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
