@@ -489,6 +489,9 @@ and [<RequireQualifiedAccess>] LineCommand =
     /// Go to the previous tab
     | GoToPreviousTab of int option
 
+    /// Get help on VsVim
+    | Help
+
     /// Print out the default history 
     | History
 
@@ -618,6 +621,9 @@ and [<RequireQualifiedAccess>] LineCommand =
 
     /// Process the 'source' command.  
     | Source of bool * string
+
+    /// Process the 'tabnew' / 'tabedit' commands.  The optional string represents the file path 
+    | TabNew of string option
 
     /// The version command
     | Version

@@ -34,8 +34,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="EditorUtils">
-      <HintPath>..\..\packages\EditorUtils.1.4.0.0\lib\net40\EditorUtils.dll</HintPath>
+    <Reference Include="EditorUtils2010, Version=1.4.0.0, Culture=neutral, PublicKeyToken=3d1514c4742e0252, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\packages\EditorUtils2010.1.4.1.0\lib\net40\EditorUtils2010.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.VisualStudio.Text.Data, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="Microsoft.VisualStudio.Text.Logic, Version=10.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
@@ -147,7 +148,7 @@
     <Compile Include="Implementation\VisualAssist\VisualAssistUtil.cs" />
     <Compile Include="Implementation\VisualAssist\VisualAssistSelectionAdapter.cs" />
     <Compile Include="Implementation\Misc\VsAdapter.cs" />
-    <Compile Include="Implementation\Misc\VsKeyProcessorProvider.cs" />
+    <Compile Include="Implementation\Misc\VsVimKeyProcessorProvider.cs" />
     <Compile Include="IPowerToolsUtil.cs" />
     <Compile Include="IReportDesignerUtil.cs" />
     <Compile Include="Implementation\ReSharper\IResharperUtil.cs" />
@@ -167,7 +168,7 @@
     </Compile>
     <Compile Include="VsCommandTarget.cs" />
     <Compile Include="VsFilterKeysAdapter.cs" />
-    <Compile Include="Implementation\Misc\VsKeyProcessor.cs" />
+    <Compile Include="Implementation\Misc\VsVimKeyProcessor.cs" />
     <Compile Include="VsVimHost.cs" />
   </ItemGroup>
   <ItemGroup>

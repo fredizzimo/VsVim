@@ -72,13 +72,6 @@ type VimRcState =
 
 [<RequireQualifiedAccess>]
 [<NoComparison>]
-[<NoEquality>]
-type HostResult =
-    | Success
-    | Error of string
-
-[<RequireQualifiedAccess>]
-[<NoComparison>]
 type ChangeCharacterKind =
     /// Switch the characters to upper case
     | ToUpperCase
@@ -121,6 +114,9 @@ type IStatusUtil =
 /// Factory for getting IStatusUtil instances.  This is an importable MEF component
 type IStatusUtilFactory =
 
+    /// Gets an empty instance which doesn't actually raise any messages
+    abstract EmptyStatusUtil : IStatusUtil
+
     /// Get the IStatusUtil instance for the given ITextBuffer
     abstract GetStatusUtil : textBuffer : ITextBuffer -> IStatusUtil
 
@@ -136,6 +132,9 @@ type IFileSystem =
 
     /// Attempt to read all of the lines from the given file 
     abstract ReadAllLines : filePath : string -> string[] option
+
+    /// Read the contents of the directory 
+    abstract ReadDirectoryContents : directoryPath : string -> string[] option
 
 /// Utility function for searching for Word values.  This is a MEF importable
 /// component
@@ -1403,6 +1402,17 @@ type KeyMappingResult =
 
     /// More input is needed to resolve this mapping.
     | NeedsMoreInput of KeyInputSet
+
+    with 
+
+    /// This will returned the mapped KeyInputSet or KeyInputSet.Empty if no mapping
+    /// was possible 
+    member x.KeyInputSet = 
+        match x with
+        | Mapped keyInputSet -> keyInputSet
+        | PartiallyMapped (keyInputSet, _) -> keyInputSet
+        | Recursive -> KeyInputSet.Empty
+        | NeedsMoreInput _ -> KeyInputSet.Empty
 
 /// Represents the span for a Visual Character mode selection.  If it weren't for the
 /// complications of tracking a visual character selection across edits to the buffer
@@ -3841,7 +3851,7 @@ type IVimHost =
     /// Is the ITextBuffer in a dirty state?
     abstract IsDirty : textBuffer : ITextBuffer -> bool
 
-    /// Is the ITextBuffer readonly
+    /// Is the ITextBuffer read only
     abstract IsReadOnly : textBuffer : ITextBuffer -> bool
 
     /// Is the ITextView visible to the user
@@ -3851,24 +3861,24 @@ type IVimHost =
     abstract IsFocused : textView : ITextView -> bool
 
     /// Loads the new file into the existing window
-    abstract LoadFileIntoExistingWindow : filePath : string -> textView : ITextView -> HostResult
+    abstract LoadFileIntoExistingWindow : filePath : string -> textView : ITextView -> bool
 
     /// Loads the new file into a new existing window
-    abstract LoadFileIntoNewWindow : filePath : string -> HostResult
+    abstract LoadFileIntoNewWindow : filePath : string -> bool
 
     /// Run the host specific make operation
-    abstract Make : jumpToFirstError : bool -> arguments : string -> HostResult
+    abstract Make : jumpToFirstError : bool -> arguments : string -> unit
 
     /// Move the focus to the ITextView in the open document in the specified direction
-    abstract MoveFocus : textView : ITextView -> direction : Direction -> HostResult
+    abstract MoveFocus : textView : ITextView -> direction : Direction -> unit
 
     abstract NavigateTo : point : VirtualSnapshotPoint -> bool
 
     /// Quit the application
     abstract Quit : unit -> unit
 
-    /// Reload the contents of the ITextBuffer discarding any changes
-    abstract Reload : ITextBuffer -> bool
+    /// Reload the contents of the ITextView discarding any changes
+    abstract Reload : textView : ITextView -> bool
 
     /// Run the specified command with the given arguments and return the textual
     /// output
@@ -3892,15 +3902,14 @@ type IVimHost =
     abstract ShouldIncludeRcFile : vimRcPath : VimRcPath -> bool
 
     /// Split the views horizontally
-    abstract SplitViewHorizontally : ITextView -> HostResult
+    abstract SplitViewHorizontally : ITextView -> unit
 
     /// Split the views horizontally
-    abstract SplitViewVertically : ITextView -> HostResult
+    abstract SplitViewVertically : ITextView -> unit
 
-    /// Called when VsVim has created the IVimGlobalSettings instance.  This callback gives
-    /// the host the oppurtunity to customize the initial IVimGlobalSettings values from
-    /// their defaults
-    abstract VimGlobalSettingsCreated : globalSettings : IVimGlobalSettings -> unit
+    /// Called when IVim is fully created.  This callback gives the host the oppurtunity
+    /// to customize various aspects of vim including IVimGlobalSettings, IVimData, etc ...
+    abstract VimCreated : vim : IVim -> unit
 
     /// Called when VsVim attempts to load the user _vimrc file.  If the load succeeded 
     /// then the resulting settings are passed into the method.  If the load failed it is 
@@ -3922,7 +3931,7 @@ type IVimHost =
 
 /// Core parts of an IVimBuffer.  Used for components which make up an IVimBuffer but
 /// need the same data provided by IVimBuffer.
-type IVimBufferData =
+and IVimBufferData =
 
     /// The current directory for this particular window
     abstract CurrentDirectory : string option with get, set
@@ -3972,6 +3981,10 @@ and IVim =
     /// Buffer actively processing input.  This has no relation to the IVimBuffer
     /// which has focus 
     abstract ActiveBuffer : IVimBuffer option
+
+    /// The IStatusUtil for the active IVimBuffer.  If there is currently no active IVimBuffer
+    /// then a silent one will be returned 
+    abstract ActiveStatusUtil : IStatusUtil
 
     /// Whether or not the vimrc file should be autoloaded before the first IVimBuffer
     /// is created
@@ -4316,7 +4329,7 @@ and IVimBuffer =
 
     /// Get the KeyInput value produced by this KeyInput in the current state of the
     /// IVimBuffer.  This will consider any buffered KeyInput values.
-    abstract GetKeyInputMapping : KeyInput -> KeyMappingResult
+    abstract GetKeyInputMapping : keyInput : KeyInput -> KeyMappingResult
 
     /// Process the KeyInput and return whether or not the input was completely handled
     abstract Process : KeyInput -> ProcessResult

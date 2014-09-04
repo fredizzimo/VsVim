@@ -26,6 +26,7 @@ namespace Vim.UnitTest.Mock
         public bool GoToDefinitionReturn { get; set; }
         public Func<ITextView, string, bool> GoToLocalDeclarationFunc { get; set; }
         public Func<ITextView, string, bool> GoToGlobalDeclarationFunc { get; set; }
+        public Func<ITextView, bool> ReloadFunc { get; set; }
         public bool IsCompletionWindowActive { get; set; }
         public int DismissCompletionWindowCount { get; set; }
         public VirtualSnapshotPoint NavigateToData { get; set; }
@@ -88,6 +89,7 @@ namespace Vim.UnitTest.Mock
             RunVisualStudioCommandFunc = delegate { throw new NotImplementedException(); };
             RunQuickFixFunc = delegate { throw new NotImplementedException(); };
             RunSaveTextAs = delegate { throw new NotImplementedException(); };
+            ReloadFunc = delegate { return true; };
             IsDirtyFunc = null;
             LastClosed = null;
             LastSaved = null;
@@ -147,17 +149,17 @@ namespace Vim.UnitTest.Mock
             return RunSaveTextAs(text, filePath);
         }
 
-        HostResult IVimHost.SplitViewHorizontally(ITextView textView)
+        void IVimHost.SplitViewHorizontally(ITextView textView)
         {
             throw new NotImplementedException();
         }
 
-        HostResult IVimHost.Make(bool jumpToFirstError, string arguments)
+        void IVimHost.Make(bool jumpToFirstError, string arguments)
         {
             throw new NotImplementedException();
         }
 
-        HostResult IVimHost.MoveFocus(ITextView textView, Direction direction)
+        void IVimHost.MoveFocus(ITextView textView, Direction direction)
         {
             throw new NotImplementedException();
         }
@@ -202,14 +204,14 @@ namespace Vim.UnitTest.Mock
             return false;
         }
 
-        HostResult IVimHost.LoadFileIntoExistingWindow(string filePath, ITextView textView)
-        {
-            return HostResult.Success;
-        }
-
-        bool IVimHost.Reload(ITextBuffer value)
+        bool IVimHost.LoadFileIntoExistingWindow(string filePath, ITextView textView)
         {
             return true;
+        }
+
+        bool IVimHost.Reload(ITextView textView)
+        {
+            return ReloadFunc(textView);
         }
 
         void IVimHost.GoToTab(int index)
@@ -227,12 +229,12 @@ namespace Vim.UnitTest.Mock
             RunVisualStudioCommandFunc(textView, command, argument);
         }
 
-        HostResult IVimHost.SplitViewVertically(ITextView value)
+        void IVimHost.SplitViewVertically(ITextView value)
         {
             throw new NotImplementedException();
         }
 
-        HostResult IVimHost.LoadFileIntoNewWindow(string filePath)
+        bool IVimHost.LoadFileIntoNewWindow(string filePath)
         {
             throw new NotImplementedException();
         }
@@ -315,7 +317,7 @@ namespace Vim.UnitTest.Mock
             return false;
         }
 
-        void IVimHost.VimGlobalSettingsCreated(IVimGlobalSettings globalSettings)
+        void IVimHost.VimCreated(IVim vim)
         {
 
         }

@@ -216,6 +216,49 @@ namespace Vim.UnitTest
             }
         }
 
+        public sealed class EditTest : InterpreterTest
+        {
+            private bool _didReloadRun;
+
+            public EditTest()
+            {
+                Create("");
+                VimHost.ReloadFunc = (textView) =>
+                {
+                    Assert.Same(textView, _vimBuffer.TextView);
+                    _didReloadRun = true;
+                    return true;
+                };
+            }
+
+            [Fact]
+            public void ReloadNonDirty()
+            {
+                _textBuffer.SetText("cat dog");
+                ParseAndRun("e");
+                VimHost.IsDirtyFunc = delegate { return false; };
+                Assert.True(_didReloadRun);
+            }
+
+            [Fact]
+            public void ReloadDirty()
+            {
+                _textBuffer.SetText("cat dog");
+                VimHost.IsDirtyFunc = delegate { return true; };
+                ParseAndRun("e");
+                Assert.False(_didReloadRun);
+            }
+
+            [Fact]
+            public void ReloadDirtyForce()
+            {
+                _textBuffer.SetText("cat dog");
+                VimHost.IsDirtyFunc = delegate { return true; };
+                ParseAndRun("e!");
+                Assert.True(_didReloadRun);
+            }
+        }
+
         public sealed class SubstituteTest : InterpreterTest
         {
             /// <summary>
@@ -648,6 +691,26 @@ namespace Vim.UnitTest
                 Assert.Equal(3, _localSettings.TabStop);
             }
         }
+
+        public sealed class HelpTest : InterpreterTest
+        {
+            [Fact]
+            public void LinksToWikiWhenNoTopicSpecified()
+            {
+                Create("");
+                ParseAndRun(@"help");
+                Assert.Contains("https://github.com/jaredpar/VsVim/wiki", _statusUtil.LastStatus);
+            }
+
+            [Fact]
+            public void LinksToWikiWhenTopicIsSpecified()
+            {
+                Create("");
+                ParseAndRun(@"help :vsc");
+                Assert.Contains("https://github.com/jaredpar/VsVim/wiki", _statusUtil.LastStatus);
+            }
+        }
+
 
         public sealed class HistoryTest : InterpreterTest
         {

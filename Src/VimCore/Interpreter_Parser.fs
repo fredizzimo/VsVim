@@ -140,6 +140,7 @@ type Parser
         ("fold", "fo")
         ("function", "fu")
         ("global", "g")
+        ("help", "h")
         ("history", "his")
         ("if", "if")
         ("join", "j")
@@ -168,8 +169,10 @@ type Parser
         ("smagic", "sm")
         ("snomagic", "sno")
         ("t", "t")
+        ("tabedit", "tabe")
         ("tabfirst", "tabfir")
         ("tablast", "tabl")
+        ("tabnew", "tabnew")
         ("tabnext", "tabn")
         ("tabNext", "tabN")
         ("tabprevious", "tabp")
@@ -179,7 +182,7 @@ type Parser
         ("vglobal", "v")
         ("version", "ve")
         ("vscmd", "vsc")
-        ("vsplit", "vsp")
+        ("vsplit", "vs")
         ("write","w")
         ("wq", "")
         ("wall", "wa")
@@ -368,6 +371,15 @@ type Parser
 
         _tokenizer.MoveToMark mark
         allBlank
+
+    /// Parse the remainder of the line as a file path.  If there is nothing else on the line
+    /// then None will be returned 
+    member x.ParseRestOfLineAsFilePath() = 
+        x.SkipBlanks()
+        if _tokenizer.IsAtEndOfLine then
+            None
+        else
+            x.ParseRestOfLine() |> Some
 
     /// Move to the next line of the input.  This will move past blank lines and return true if 
     /// the result is a non-blank line which can be processed
@@ -867,12 +879,7 @@ type Parser
     member x.ParseChangeDirectory() =
         // Bang is allowed but has no effect
         x.ParseBang() |> ignore
-        x.SkipBlanks()
-        let path = 
-            if _tokenizer.IsAtEndOfLine then
-                None
-            else
-                x.ParseRestOfLine() |> Some
+        let path = x.ParseRestOfLineAsFilePath()
         LineCommand.ChangeDirectory path
 
     /// Parse out the change local directory command.  The path here is optional
@@ -1485,6 +1492,11 @@ type Parser
 
         result
 
+    /// Parse out the 'tabnew' / 'tabedit' commands.  They have the same set of arguments
+    member x.ParseTabNew() = 
+        let filePath = x.ParseRestOfLineAsFilePath()
+        LineCommand.TabNew filePath
+
     /// Parse out the 'tabnext' command
     member x.ParseTabNext() =   
         x.SkipBlanks()
@@ -1625,6 +1637,11 @@ type Parser
     member x.ParseGlobal lineRange =
         let hasBang = x.ParseBang()
         x.ParseGlobalCore lineRange (not hasBang)
+
+    /// Parse out the :help command
+    member x.ParseHelp() =
+        _tokenizer.MoveToEndOfLine()
+        LineCommand.Help
 
     /// Parse out the :history command
     member x.ParseHistory() =
@@ -2002,6 +2019,7 @@ type Parser
                 | "fold" -> x.ParseFold lineRange
                 | "function" -> noRange x.ParseFunctionStart
                 | "global" -> x.ParseGlobal lineRange
+                | "help" -> noRange x.ParseHelp
                 | "history" -> noRange (fun () -> x.ParseHistory())
                 | "if" -> noRange x.ParseIfStart
                 | "iunmap" -> noRange (fun () -> x.ParseMapUnmap false [KeyRemapMode.Insert])
@@ -2051,9 +2069,11 @@ type Parser
                 | "snoremap"-> noRange (fun () -> x.ParseMapKeysNoRemap false [KeyRemapMode.Select])
                 | "sunmap" -> noRange (fun () -> x.ParseMapUnmap false [KeyRemapMode.Select])
                 | "t" -> x.ParseCopyTo lineRange 
+                | "tabedit" -> noRange x.ParseTabNew
                 | "tabfirst" -> noRange (fun () -> LineCommand.GoToFirstTab)
                 | "tabrewind" -> noRange (fun () -> LineCommand.GoToFirstTab)
                 | "tablast" -> noRange (fun () -> LineCommand.GoToLastTab)
+                | "tabnew" -> noRange x.ParseTabNew
                 | "tabnext" -> noRange x.ParseTabNext 
                 | "tabNext" -> noRange x.ParseTabPrevious
                 | "tabprevious" -> noRange x.ParseTabPrevious

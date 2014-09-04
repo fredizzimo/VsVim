@@ -10,10 +10,10 @@ namespace Vim.VisualStudio.Implementation.Misc
     [Export(typeof(IKeyProcessorProvider))]
     [Order(Before = Constants.FallbackKeyProcessorName)]
     [Order(Before = Constants.VisualStudioKeyProcessorName)]
-    [Name(Constants.VsKeyProcessorName)]
+    [Name(VimConstants.MainKeyProcessorName)]
     [TextViewRole(PredefinedTextViewRoles.Editable)]
     [ContentType(VimConstants.ContentType)]
-    internal sealed class VsKeyProcessorProvider : IKeyProcessorProvider
+    internal sealed class VsVimKeyProcessorProvider : IKeyProcessorProvider
     {
         private readonly IVimBufferCoordinatorFactory _bufferCoordinatorFactory;
         private readonly IVsAdapter _adapter;
@@ -22,7 +22,7 @@ namespace Vim.VisualStudio.Implementation.Misc
         private readonly IReportDesignerUtil _reportDesignerUtil;
 
         [ImportingConstructor]
-        internal VsKeyProcessorProvider(IVim vim, IVsAdapter adapter, IVimBufferCoordinatorFactory bufferCoordinatorFactory, IKeyUtil keyUtil, IReportDesignerUtil reportDesignerUtil)
+        internal VsVimKeyProcessorProvider(IVim vim, IVsAdapter adapter, IVimBufferCoordinatorFactory bufferCoordinatorFactory, IKeyUtil keyUtil, IReportDesignerUtil reportDesignerUtil)
         {
             _vim = vim;
             _adapter = adapter;
@@ -40,7 +40,7 @@ namespace Vim.VisualStudio.Implementation.Misc
             }
 
             var vimBufferCoordinator = _bufferCoordinatorFactory.GetVimBufferCoordinator(vimBuffer);
-            return new VsKeyProcessor(_adapter, vimBufferCoordinator, _keyUtil, _reportDesignerUtil);
+            return new VsVimKeyProcessor(_adapter, vimBufferCoordinator, _keyUtil, _reportDesignerUtil);
         }
     }
 }

@@ -13,8 +13,6 @@ using Microsoft.FSharp.Core;
 
 namespace Vim.UnitTest
 {
-    // TODO: Need to remove several of the mock's here.  No reason to mock IVimLocalSettings and 
-    // a couple others.
     public sealed class CommonOperationsTest : VimTestBase
     {
         private ITextView _textView;
@@ -1413,7 +1411,7 @@ namespace Vim.UnitTest
         {
             Create("foo bar");
             _vimHost.Setup(x => x.IsDirty(_textBuffer)).Returns(false).Verifiable();
-            _vimHost.Setup(x => x.LoadFileIntoExistingWindow("foo", _textView)).Returns(HostResult.Success).Verifiable();
+            _vimHost.Setup(x => x.LoadFileIntoExistingWindow("foo", _textView)).Returns(true).Verifiable();
             _operations.GoToFile();
             _vimHost.Verify();
         }
@@ -1423,7 +1421,7 @@ namespace Vim.UnitTest
         {
             Create("foo bar");
             _vimHost.Setup(x => x.IsDirty(_textBuffer)).Returns(false).Verifiable();
-            _vimHost.Setup(x => x.LoadFileIntoExistingWindow("foo", _textView)).Returns(HostResult.NewError("")).Verifiable();
+            _vimHost.Setup(x => x.LoadFileIntoExistingWindow("foo", _textView)).Returns(false).Verifiable();
             _statusUtil.Setup(x => x.OnError(Resources.NormalMode_CantFindFile("foo"))).Verifiable();
             _operations.GoToFile();
             _statusUtil.Verify();

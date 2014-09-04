@@ -563,7 +563,6 @@ type VimInterpreter
 
     /// Edit the specified file
     member x.RunEdit hasBang fileOptions commandOption filePath =
-        let filePath = SystemUtil.ResolvePath filePath
         if not (List.isEmpty fileOptions) then
             _statusUtil.OnError (Resources.Interpreter_OptionNotSupported "[++opt]")
         elif Option.isSome commandOption then
@@ -575,7 +574,7 @@ type VimInterpreter
                 let caret = 
                     let point = TextViewUtil.GetCaretPoint _textView
                     point.Snapshot.CreateTrackingPoint(point.Position, PointTrackingMode.Negative)
-                if not (_vimHost.Reload _textBuffer) then
+                if not (_vimHost.Reload _textView) then
                     _commonOperations.Beep()
                 else
                     match TrackingPointUtil.GetPoint _textView.TextSnapshot caret with
@@ -585,9 +584,8 @@ type VimInterpreter
         elif not hasBang && _vimHost.IsDirty _textBuffer then
             _statusUtil.OnError Resources.Common_NoWriteSinceLastChange
         else
-            match _vimHost.LoadFileIntoExistingWindow filePath _textView with
-            | HostResult.Success -> ()
-            | HostResult.Error(msg) -> _statusUtil.OnError(msg)
+            let filePath = SystemUtil.ResolveVimPath _vimData.CurrentDirectory filePath
+            _vimHost.LoadFileIntoExistingWindow filePath _textView |> ignore
 
     /// Get the value of the specified expression 
     member x.RunExpression expr =
@@ -670,6 +668,9 @@ type VimInterpreter
         let count = x.GetCountOrDefault count
         _commonOperations.GoToNextTab Path.Backward count
 
+    member x.RunHelp () = 
+        _statusUtil.OnStatus "For help on VsVim, please visit the Wiki page (https://github.com/jaredpar/VsVim/wiki)"
+
     /// Print out the applicable history information
     member x.RunHistory () = 
         let output = List<string>()
@@ -729,9 +730,7 @@ type VimInterpreter
 
     /// Run the host make command 
     member x.RunMake hasBang arguments = 
-        match _vimHost.Make (not hasBang) arguments with
-        | HostResult.Error msg -> _statusUtil.OnError msg
-        | HostResult.Success -> ()
+        _vimHost.Make (not hasBang) arguments 
 
     /// Run the map keys command
     member x.RunMapKeys leftKeyNotation rightKeyNotation keyRemapModes allowRemap mapArgumentList =
@@ -842,7 +841,7 @@ type VimInterpreter
                 match filePath with
                 | None -> _vimHost.Save _textView.TextBuffer |> ignore  
                 | Some filePath ->
-                    let filePath = SystemUtil.ResolvePath filePath
+                    let filePath = SystemUtil.ResolveVimPath _vimData.CurrentDirectory filePath
                     _vimHost.SaveTextAs (lineRange.GetTextIncludingLineBreak()) filePath |> ignore
     
                 x.RunClose false |> ignore)
@@ -870,7 +869,7 @@ type VimInterpreter
 
     /// Run the read file command.
     member x.RunReadFile lineRange fileOptionList filePath =
-        let filePath = SystemUtil.ResolvePath filePath
+        let filePath = SystemUtil.ResolveVimPath _vimData.CurrentDirectory filePath
         x.RunWithLineRangeOrDefault lineRange DefaultLineRange.CurrentLine (fun lineRange ->
             if not (List.isEmpty fileOptionList) then
                 _statusUtil.OnError (Resources.Interpreter_OptionNotSupported "[++opt]")
@@ -1178,7 +1177,7 @@ type VimInterpreter
         if hasBang then
             _statusUtil.OnError (Resources.Interpreter_OptionNotSupported "!")
         else
-            let filePath = SystemUtil.ResolvePath filePath
+            let filePath = SystemUtil.ResolveVimPath _vimData.CurrentDirectory filePath
             match _fileSystem.ReadAllLines filePath with
             | None -> _statusUtil.OnError (Resources.CommandMode_CouldNotOpenFile filePath)
             | Some lines -> x.RunScript lines
@@ -1196,9 +1195,7 @@ type VimInterpreter
                 true
 
         if SplitArgumentsAreValid fileOptions commandOption then
-            match behavior _textView with
-            | HostResult.Success -> ()
-            | HostResult.Error msg -> _statusUtil.OnError msg
+            behavior _textView 
         else
             ()
 
@@ -1257,6 +1254,10 @@ type VimInterpreter
             | Some substituteData -> substituteData.SearchPattern, substituteData.Substitute
         x.RunSubstitute lineRange pattern replace flags 
 
+    member x.RunTabNew filePath = 
+        let filePath = filePath |> OptionUtil.getOrDefault ""
+        _vimHost.LoadFileIntoNewWindow filePath |> ignore
+
     /// Run the undo command
     member x.RunUndo() =
         _commonOperations.Undo 1
@@ -1301,7 +1302,7 @@ type VimInterpreter
         let filePath =
             match filePath with
             | Some filePath ->
-                Some (SystemUtil.ResolvePath filePath)
+                Some (SystemUtil.ResolveVimPath _vimData.CurrentDirectory filePath)
             | None ->
                 None
         if not (List.isEmpty fileOptionList) then
@@ -1378,6 +1379,7 @@ type VimInterpreter
         | LineCommand.DisplayMarks marks -> x.RunDisplayMarks marks
         | LineCommand.Fold lineRange -> x.RunFold lineRange
         | LineCommand.Global (lineRange, pattern, matchPattern, lineCommand) -> x.RunGlobal lineRange pattern matchPattern lineCommand
+        | LineCommand.Help -> x.RunHelp()
         | LineCommand.History -> x.RunHistory()
         | LineCommand.IfStart _ -> cantRun ()
         | LineCommand.IfEnd -> cantRun ()
@@ -1419,6 +1421,7 @@ type VimInterpreter
         | LineCommand.Source (hasBang, filePath) -> x.RunSource hasBang filePath
         | LineCommand.Substitute (lineRange, pattern, replace, flags) -> x.RunSubstitute lineRange pattern replace flags
         | LineCommand.SubstituteRepeat (lineRange, substituteFlags) -> x.RunSubstituteRepeatLast lineRange substituteFlags
+        | LineCommand.TabNew filePath -> x.RunTabNew filePath
         | LineCommand.Undo -> x.RunUndo()
         | LineCommand.Unlet (ignoreMissing, nameList) -> x.RunUnlet ignoreMissing nameList
         | LineCommand.UnmapKeys (keyNotation, keyRemapModes, mapArgumentList) -> x.RunUnmapKeys keyNotation keyRemapModes mapArgumentList

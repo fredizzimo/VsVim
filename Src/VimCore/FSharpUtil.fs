@@ -891,8 +891,14 @@ module internal SystemUtil =
             else
                 token
 
+        // According to Shell and Utilities volume of IEEE Std 1003.1-2001
+        // standard environment variable names should consist solely of
+        // uppercase letters, digits, and the '_'. However variables with
+        // lowercasesee lowercase letters are also popular, thus the regex
+        // below supports them as well.
+        // http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap08.html
         let text =
-            Regex.Matches(text, "(\$[A-Z]+)|([^$]+)")
+            Regex.Matches(text, "(\$[\w_][\w\d_]*)|([^$]+)")
             |> Seq.cast
             |> Seq.map processMatch
             |> String.concat ""
@@ -909,3 +915,22 @@ module internal SystemUtil =
             None
         else
             Some text
+
+    let EnsureRooted currentDirectory text = 
+        if System.IO.Path.IsPathRooted text || not (System.IO.Path.IsPathRooted currentDirectory) then
+            text
+        else
+            CombinePath currentDirectory text
+
+    /// Like ResolvePath except it will always return a rooted path.  If the provided path
+    /// isn't rooted it will be rooted inside of 'currentDirectory'
+    let ResolveVimPath currentDirectory text = 
+        match text with
+        | "." -> currentDirectory
+        | ".." -> System.IO.Path.GetPathRoot currentDirectory
+        | _ -> 
+            let text = ResolvePath text
+            EnsureRooted currentDirectory text
+
+    let TryResolveVimPath currentDirectory text =
+        TryResolvePath text |> Option.map (fun text -> EnsureRooted currentDirectory text)
