@@ -360,5 +360,10 @@ namespace Vim.UnitTest.Mock
         {
             return false;
         }
+
+        IWpfTextViewMargin IVimHost.GetTextViewMargin(ITextView textView, string name)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

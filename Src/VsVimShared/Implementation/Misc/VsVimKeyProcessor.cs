@@ -21,6 +21,7 @@ namespace Vim.VisualStudio.Implementation.Misc
         private readonly IReportDesignerUtil _reportDesignerUtil;
         private readonly IVimHost _vimHost;
         private int _keyDownCount;
+        private bool _easyMotionEnabled;
         private Lazy<PropertyInfo> _searchInProgressInfo;
 
         internal int KeyDownCount
@@ -35,6 +36,7 @@ namespace Vim.VisualStudio.Implementation.Misc
             _reportDesignerUtil = reportDesignerUtil;
             _bufferCoordinator = bufferCoordinator;
             _vimHost = bufferCoordinator.VimBuffer.Vim.VimHost;
+            _easyMotionEnabled = false;
             _searchInProgressInfo = new Lazy<PropertyInfo>(FindSearchInProgressPropertyInfo);
         }
 
@@ -92,6 +94,13 @@ namespace Vim.VisualStudio.Implementation.Misc
             {
                 return false;
             }
+            
+            if (_easyMotionEnabled)
+            {
+                _easyMotionEnabled = false;
+                return true;
+            }
+
 
             return base.TryProcess(keyInput);
         }
@@ -108,6 +117,12 @@ namespace Vim.VisualStudio.Implementation.Misc
 
         public override void KeyDown(KeyEventArgs args)
         {
+            _easyMotionEnabled = false;
+            IWpfTextViewMargin margin = _vimHost.GetTextViewMargin(TextView, "Easy Motion Margin");
+            if (margin != null)
+            {
+                _easyMotionEnabled = margin.Enabled;
+            }
             OnKeyEvent(isDown: true);
             base.KeyDown(args);
         }

@@ -10,6 +10,7 @@ namespace Vim.VisualStudio.Implementation.Misc
     [Export(typeof(IKeyProcessorProvider))]
     [Order(Before = Constants.FallbackKeyProcessorName)]
     [Order(Before = Constants.VisualStudioKeyProcessorName)]
+    [Order(After = "Easy Motion Key Processor")]
     [Name(VimConstants.MainKeyProcessorName)]
     [TextViewRole(PredefinedTextViewRoles.Editable)]
     [ContentType(VimConstants.ContentType)]

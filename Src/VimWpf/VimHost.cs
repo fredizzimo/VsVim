@@ -11,6 +11,8 @@ using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Formatting;
 using Microsoft.VisualStudio.Text.Operations;
+using Microsoft.VisualStudio.TextManager.Interop;
+using Microsoft.VisualStudio.Editor;
 using Vim.Extensions;
 using Path = Vim.Path;
 
@@ -349,6 +351,28 @@ namespace Vim.UI.Wpf
             return false;
         }
 
+        public IWpfTextViewMargin GetTextViewMargin(ITextView textView, string name)
+        {
+            IVsTextView vTextView = textView.Properties[typeof(IVsTextView)] as IVsTextView;
+            IVsUserData userData = vTextView as IVsUserData;
+
+            if (null != userData)
+            {
+                IWpfTextViewHost viewHost;
+                object holder;
+                Guid guidViewHost = DefGuidList.guidIWpfTextViewHost;
+                userData.GetData(ref guidViewHost, out holder);
+                viewHost = (IWpfTextViewHost)holder;
+                if (viewHost != null)
+                {
+                    IWpfTextViewMargin margin = viewHost.GetTextViewMargin(name);
+                    return margin;
+                }
+            }
+
+            return null;
+        }
+
         protected void RaiseIsVisibleChanged(ITextView textView)
         {
             if (_isVisibleChanged != null)
@@ -666,6 +690,11 @@ namespace Vim.UI.Wpf
         bool IVimHost.TryCustomProcess(ITextView textView, InsertCommand command)
         {
             return TryCustomProcess(textView, command);
+        }
+
+        IWpfTextViewMargin IVimHost.GetTextViewMargin(ITextView textView, string name)
+        {
+            return GetTextViewMargin(textView, name);
         }
 
         bool IVimHost.IsVisible(ITextView textView)
